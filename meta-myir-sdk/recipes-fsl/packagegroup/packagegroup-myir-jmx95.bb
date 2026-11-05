@@ -7,6 +7,7 @@ inherit packagegroup
 # Development packages are supplied by SDK dev-pkgs, not installed in rootfs.
 RDEPENDS:${PN} = " \
     packagegroup-imx-core-tools \
+    packagegroup-myir-jmx95-update \
     v4l-utils tcpdump libubootenv-bin uboot-env u-boot-imx-env \
     tslib tslib-calibrate tslib-conf tslib-uinput tslib-tests \
     iperf3 alsa-utils serialcheck libdrm-tests sqlite3 hostapd \

@@ -1,0 +1,5 @@
+# Do not inherit upstream web-server arguments or an old board's OTA URL.
+# The updater service and socket are disabled; configure them explicitly only
+# after signing, inactive-slot selection and rollback have been validated.
+SWUPDATE_WEBSERVER_ARGS=""
+SWUPDATE_SURICATTA_ARGS=""
