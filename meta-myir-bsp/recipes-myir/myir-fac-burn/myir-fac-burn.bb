@@ -7,6 +7,7 @@ PACKAGE_ARCH = "${MACHINE_ARCH}"
 inherit systemd
 
 SRC_URI = "file://myir-burn-emmc file://fac-burn-emmc.service"
+S = "${UNPACKDIR}"
 MYIR_FACTORY_ROOTFS_IMAGE ?= "myir-image-emmc"
 MYIR_FACTORY_LAYOUT ?= "single"
 
@@ -21,7 +22,6 @@ python () {
 do_install[depends] += "${MYIR_FACTORY_ROOTFS_IMAGE}:do_image_complete"
 
 python do_install() {
-    import hashlib
     import pathlib
     import shutil
     from oe.bootfiles import get_boot_files
@@ -52,8 +52,7 @@ python do_install() {
     checksums = []
     for path in sorted(payload.rglob('*')):
         if path.is_file():
-            with path.open('rb') as stream:
-                digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+            digest = bb.utils.sha256_file(str(path))
             checksums.append('%s  %s\n' % (digest, path.relative_to(payload)))
     (payload / 'SHA256SUMS').write_text(''.join(checksums))
 
