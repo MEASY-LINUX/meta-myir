@@ -12,6 +12,7 @@ RDEPENDS:${PN} = " \
     iperf3 alsa-utils serialcheck libdrm-tests sqlite3 hostapd \
     ppp ppp-quectel quectel-cm \
     libmodbus bridge-utils net-tools vim \
+    clinfo optee-examples python3-cryptography \
     autorun-script auto-wifi nxp-bt-init myir-regulatory \
     myir-test-function myir-lvgl myir-tools board-info eeprom-pnsn \
     kernel-module-nxp-wlan firmware-nxp-wifi-nxpaw693-sdio \
