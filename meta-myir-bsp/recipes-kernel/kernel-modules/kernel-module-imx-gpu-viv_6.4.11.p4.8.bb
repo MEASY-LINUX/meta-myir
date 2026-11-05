@@ -9,10 +9,12 @@ LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/GPL-2.0-only;md5=801f80980d171d
 
 SRC_URI = "${LINUX_IMX_SRC};subpath=drivers/mxc/gpu-viv;destsuffix=${BB_GIT_DEFAULT_DESTSUFFIX}/src \
            file://Add-makefile.patch"
-LINUX_IMX_SRC ?= "git://github.com/nxp-imx/linux-imx.git;protocol=https;branch=${SRCBRANCH}"
+LINUX_IMX_SRC ?= "git:///home/myir/bsp/6.18/myir-imx-linux;protocol=file;branch=${SRCBRANCH}"
 SRCBRANCH = "lf-6.18.y"
 LOCALVERSION = "-lts-next"
-SRCREV = "4c4ef1213fc49616ff8a8e42955ab3e48027a1ba"
+SRCREV = "44213de6a50a505e25de3a499a3edd9cccc56407"
+BB_GIT_SHALLOW = "1"
+BB_GIT_SHALLOW_DEPTH = "1"
 
 inherit module
 

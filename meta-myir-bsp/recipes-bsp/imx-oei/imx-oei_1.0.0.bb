@@ -7,9 +7,11 @@ INHIBIT_DEFAULT_DEPS = "1"
 DEPENDS = "gcc-arm-none-eabi-native"
 
 SRC_URI = "${IMX_OEI_SRC};branch=${SRCBRANCH}"
-IMX_OEI_SRC ?= "git://github.com/nxp-imx/imx-oei.git;protocol=https"
+IMX_OEI_SRC ?= "git:///home/myir/bsp/6.18/imx-oei;protocol=file"
 SRCBRANCH = "master"
-SRCREV = "9aea3350e643da86081c9dfaf3a6e1a84a583bfd"
+SRCREV = "0373aee687392989e45c24d71c3f5872777c600e"
+BB_GIT_SHALLOW = "1"
+BB_GIT_SHALLOW_DEPTH = "1"
 
 inherit deploy
 

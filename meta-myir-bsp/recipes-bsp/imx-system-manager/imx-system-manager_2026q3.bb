@@ -12,8 +12,10 @@ LICENSE = "BSD-3-Clause"
 LIC_FILES_CHKSUM = "file://LICENSE.txt;md5=f2a70813bc08547f509361c08b718861"
 
 SRC_URI = "${IMX_SYSTEM_MANAGER_SRC};branch=${SRCBRANCH}"
-IMX_SYSTEM_MANAGER_SRC ?= "git://github.com/nxp-imx/imx-sm.git;protocol=https"
-SRCBRANCH = "master"
-SRCREV = "eec232878ab7dd460f5a8f3767d39dc7e9412efa"
+IMX_SYSTEM_MANAGER_SRC ?= "git:///home/myir/bsp/6.18/imx-system-manager;protocol=file"
+SRCBRANCH = "develop_sm"
+SRCREV = "6a686549029a4c7e4ec3af8fa1ac63b696d7c0ca"
+BB_GIT_SHALLOW = "1"
+BB_GIT_SHALLOW_DEPTH = "1"
 
 require imx-system-manager.inc

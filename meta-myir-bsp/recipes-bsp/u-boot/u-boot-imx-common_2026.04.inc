@@ -5,10 +5,12 @@ LIC_FILES_CHKSUM = "file://Licenses/gpl-2.0.txt;md5=b234ee4d69f5fce4486a80fdaf4a
 
 SRC_URI = "${UBOOT_SRC};branch=${SRCBRANCH}"
 
-UBOOT_SRC ?= "git://github.com/nxp-imx/uboot-imx.git;protocol=https"
+UBOOT_SRC ?= "git:///home/myir/bsp/6.18/u-boot-imx;protocol=file"
 SRCBRANCH = "lf_v2026.04"
 LOCALVERSION ?= "-${SRCBRANCH}"
-SRCREV = "bb41975aeb4cbd153b49c9fd62da1d64cd65968d"
+SRCREV = "7fa7e9a6bef8afda2d2ad8d44b5e590290420189"
+BB_GIT_SHALLOW = "1"
+BB_GIT_SHALLOW_DEPTH = "1"
 
 DEPENDS += "\
     bc-native \
