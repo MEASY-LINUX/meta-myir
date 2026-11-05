@@ -2,7 +2,7 @@
 
 LICENSE_DEPS = "Apache-2.0 & BSD-2-Clause & BSD-3-Clause & MIT & MPL-2.0"
 
-LITERT_SRC ?= "gitsm://github.com/nxp-imx/litert-imx.git;protocol=https"
+LITERT_SRC ?= "git://github.com/nxp-imx/litert-imx.git;protocol=https"
 SRCBRANCH_litert = "lf-6.18.37_2.1.0"
 SRCREV_litert = "d32cecc23029ca5d199be87081d312042aec379c"
 
@@ -16,7 +16,7 @@ SRCREV_litert = "d32cecc23029ca5d199be87081d312042aec379c"
 SRCREV_abseil-cpp = "987c57f325f7fa8472fa84e1f885f7534d391b0d"
 SRCREV_cpuinfo = "8a9210069b5a37dd89ed118a783945502a30a4ae"
 SRCREV_egl-headers = "649981109e263b737e7735933c90626c29a306f2"
-SRCREV_eigen = "dcbaf2d608f306450f1e74949eb87e9a22a7ef4b"
+SRCREV_opengl-headers = "0cb0880d91581d34f96899c86fc1bf35627b4b81"
 SRCREV_farmhash = "0d859a811870d10f53a594927d0d0b97573ad06d"
 # tag: v25.9.23
 SRCREV_flatbuffers = "187240970746d00bbd26b0f5873ed54d2477f9f3"
@@ -43,29 +43,36 @@ SRCREV_kleidiai = "63205aa90afa6803d8f58bc3081b69288e9f1906"
 SRCREV_tensorflow = "e36baa302922ea3c7131b302c2996bd2051ee5c4"
 
 SRC_URI_DEPS = " \
-             git://github.com/abseil/abseil-cpp;protocol=https;nobranch=1;name=abseil-cpp;destsuffix=${BP}/deps/abseil-cpp \
-             git://github.com/pytorch/cpuinfo;protocol=https;branch=main;name=cpuinfo;destsuffix=${BP}/deps/cpuinfo \
-             git://github.com/KhronosGroup/EGL-Registry;protocol=https;branch=main;name=egl-headers;destsuffix=${BP}/deps/egl-headers \
-             git://gitlab.com/libeigen/eigen.git;protocol=https;branch=master;name=eigen;destsuffix=${BP}/deps/eigen \
-             git://github.com/google/farmhash;protocol=https;branch=master;name=farmhash;destsuffix=${BP}/deps/farmhash \
-             git://github.com/google/flatbuffers;protocol=https;nobranch=1;name=flatbuffers;destsuffix=${BP}/deps/flatbuffers \
-             git://github.com/petewarden/OouraFFT;protocol=https;nobranch=1;name=fft2d;destsuffix=${BP}/deps/fft2d \
-             git://github.com/google/gemmlowp;protocol=https;branch=master;name=gemmlowp;destsuffix=${BP}/deps/gemmlowp \
-             git://github.com/google/benchmark;protocol=https;nobranch=1;name=google-benchmark;destsuffix=${BP}/deps/google-benchmark \
-             git://github.com/google/googletest;protocol=https;nobranch=1;name=googletest;destsuffix=${BP}/deps/googletest \
-             git://github.com/jax-ml/ml_dtypes;protocol=https;branch=main;name=ml-dtypes;destsuffix=${BP}/deps/ml-dtypes \
-             git://github.com/intel/ARM_NEON_2_x86_SSE;protocol=https;branch=master;name=neon2sse;destsuffix=${BP}/deps/neon2sse \
-             git://github.com/google/re2;protocol=https;nobranch=1;name=re2;destsuffix=${BP}/deps/re2 \
-             git://github.com/google/ruy;protocol=https;branch=master;name=ruy;destsuffix=${BP}/deps/ruy \
+             git://github.com/abseil/abseil-cpp.git;protocol=https;nobranch=1;name=abseil-cpp;destsuffix=${BP}/deps/abseil-cpp \
+             git://github.com/pytorch/cpuinfo.git;protocol=https;branch=main;name=cpuinfo;destsuffix=${BP}/deps/cpuinfo \
+             git://github.com/KhronosGroup/EGL-Registry.git;protocol=https;branch=main;name=egl-headers;destsuffix=${BP}/deps/egl-headers \
+             git://github.com/KhronosGroup/OpenGL-Registry.git;protocol=https;nobranch=1;name=opengl-headers;destsuffix=${BP}/deps/opengl-headers \
+             https://storage.googleapis.com/mirror.tensorflow.org/gitlab.com/libeigen/eigen/-/archive/dcbaf2d608f306450f1e74949eb87e9a22a7ef4b/eigen-dcbaf2d608f306450f1e74949eb87e9a22a7ef4b.tar.gz;name=eigen;subdir=${BP}/deps/eigen;striplevel=1 \
+             git://github.com/google/farmhash.git;protocol=https;branch=master;name=farmhash;destsuffix=${BP}/deps/farmhash \
+             git://github.com/google/flatbuffers.git;protocol=https;nobranch=1;name=flatbuffers;destsuffix=${BP}/deps/flatbuffers \
+             git://github.com/petewarden/OouraFFT.git;protocol=https;nobranch=1;name=fft2d;destsuffix=${BP}/deps/fft2d \
+             git://github.com/google/gemmlowp.git;protocol=https;branch=master;name=gemmlowp;destsuffix=${BP}/deps/gemmlowp \
+             git://github.com/google/benchmark.git;protocol=https;nobranch=1;name=google-benchmark;destsuffix=${BP}/deps/google-benchmark \
+             git://github.com/google/googletest.git;protocol=https;nobranch=1;name=googletest;destsuffix=${BP}/deps/googletest \
+             git://github.com/jax-ml/ml_dtypes.git;protocol=https;branch=main;name=ml-dtypes;destsuffix=${BP}/deps/ml-dtypes \
+             git://github.com/intel/ARM_NEON_2_x86_SSE.git;protocol=https;branch=master;name=neon2sse;destsuffix=${BP}/deps/neon2sse \
+             git://github.com/google/re2.git;protocol=https;nobranch=1;name=re2;destsuffix=${BP}/deps/re2 \
+             git://github.com/google/ruy.git;protocol=https;branch=master;name=ruy;destsuffix=${BP}/deps/ruy \
              git://github.com/google/XNNPACK;protocol=https;branch=master;name=xnnpack;destsuffix=${BP}/deps/xnnpack \
-             git://github.com/protocolbuffers/protobuf;protocol=https;nobranch=1;name=protobuf;destsuffix=${BP}/deps/protobuf \
+             git://github.com/protocolbuffers/protobuf.git;protocol=https;nobranch=1;name=protobuf;destsuffix=${BP}/deps/protobuf \
              git://github.com/google/pthreadpool;protocol=https;branch=main;name=pthreadpool;destsuffix=${BP}/deps/pthreadpool \
-             git://github.com/Maratyszcza/FP16;protocol=https;branch=master;name=fp16;destsuffix=${BP}/deps/fp16 \
-             git://github.com/Maratyszcza/FXdiv;protocol=https;branch=master;name=fxdiv;destsuffix=${BP}/deps/fxdiv \
+             git://github.com/Maratyszcza/FP16.git;protocol=https;branch=master;name=fp16;destsuffix=${BP}/deps/fp16 \
+             git://github.com/Maratyszcza/FXdiv.git;protocol=https;branch=master;name=fxdiv;destsuffix=${BP}/deps/fxdiv \
              git://github.com/ARM-software/kleidiai;protocol=https;branch=main;name=kleidiai;destsuffix=${BP}/deps/kleidiai \
              git://github.com/tensorflow/tensorflow;protocol=https;nobranch=1;name=tensorflow;destsuffix=${BP}/deps/tensorflow"
 
-SRCREV_FORMAT_DEPS = "abseil-cpp_cpuinfo_egl-headers_eigen_farmhash_flatbuffers_fft2d_gemmlowp_google-benchmark_googletest_ml-dtypes_neon2sse_re2_ruy_xnnpack_protobuf_pthreadpool_fp16_fxdiv_kleidiai_tensorflow"
+SRCREV_FORMAT_DEPS = "abseil-cpp_cpuinfo_egl-headers_opengl-headers_farmhash_flatbuffers_fft2d_gemmlowp_google-benchmark_googletest_ml-dtypes_neon2sse_re2_ruy_xnnpack_protobuf_pthreadpool_fp16_fxdiv_kleidiai_tensorflow"
+
+SRC_URI[eigen.sha256sum] = "a71517b3815984c1a8174db1ebc58a17d4f5c23c06e377bbc4a5dfc85855a516"
+
+# Eigen is fetched from TensorFlow's fixed-revision source mirror because
+# gitlab.com is unreachable from the build network.
+INSANE_SKIP += "src-uri-bad"
 
 # License files for all dependency sources
 LIC_FILES_CHKSUM_DEPS = " \
@@ -101,7 +108,8 @@ DEPS_DIR ?= "${S}/deps"
 DEPS_CMAKE_FLAGS = " \
     -DFETCHCONTENT_SOURCE_DIR_ABSEIL-CPP=${DEPS_DIR}/abseil-cpp \
     -DFETCHCONTENT_SOURCE_DIR_CPUINFO=${DEPS_DIR}/cpuinfo \
-    -DFETCHCONTENT_SOURCE_DIR_EGL-HEADERS=${DEPS_DIR}/egl-headers \
+    -DFETCHCONTENT_SOURCE_DIR_EGL_HEADERS=${DEPS_DIR}/egl-headers \
+    -DFETCHCONTENT_SOURCE_DIR_OPENGL_HEADERS=${DEPS_DIR}/opengl-headers \
     -DFETCHCONTENT_SOURCE_DIR_EIGEN=${DEPS_DIR}/eigen \
     -DFETCHCONTENT_SOURCE_DIR_FARMHASH=${DEPS_DIR}/farmhash \
     -DFETCHCONTENT_SOURCE_DIR_FLATBUFFERS=${DEPS_DIR}/flatbuffers \

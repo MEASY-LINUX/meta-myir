@@ -19,6 +19,15 @@ SRCREV_FORMAT = "litert_${SRCREV_FORMAT_DEPS}"
 
 inherit python3native cmake
 
+litert_link_tensorflow_source() {
+    # The TensorFlow source is fetched explicitly in SRC_URI_DEPS. Avoid the
+    # duplicate gitsm clone and expose that fixed revision at the gitlink path.
+    mkdir -p "${S}/third_party"
+    rmdir "${S}/third_party/tensorflow" 2>/dev/null || true
+    ln -sfnT "../deps/tensorflow" "${S}/third_party/tensorflow"
+}
+do_unpack[postfuncs] += "litert_link_tensorflow_source"
+
 PACKAGECONFIG ??= "${PACKAGECONFIG_GPU} ${PACKAGECONFIG_NEUTRON}"
 PACKAGECONFIG_GPU              = ""
 PACKAGECONFIG_GPU:mx95-nxp-bsp = "gpu"
@@ -53,6 +62,11 @@ do_configure[network] = "1"
 
 do_configure:prepend() {
     export FC=""
+
+    # These Khronos registries do not ship a top-level license file. Supplying
+    # one prevents TensorFlow's FetchContent helper from downloading it.
+    cp "${S}/LICENSE" "${DEPS_DIR}/egl-headers/LICENSE"
+    cp "${S}/LICENSE" "${DEPS_DIR}/opengl-headers/LICENSE"
 
     # require to pull https://github.com/KhronosGroup/OpenCL-Headers
     export HTTP_PROXY=${http_proxy}
