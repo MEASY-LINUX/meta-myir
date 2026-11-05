@@ -9,7 +9,7 @@ DEPENDS = "gcc-arm-none-eabi-native"
 SRC_URI = "${IMX_OEI_SRC};branch=${SRCBRANCH}"
 IMX_OEI_SRC ?= "git:///home/myir/bsp/6.18/imx-oei;protocol=file"
 SRCBRANCH = "master"
-SRCREV = "0373aee687392989e45c24d71c3f5872777c600e"
+SRCREV = "26b9e5dd66eeedbda66ccb105d04de84a11ed1c6"
 BB_GIT_SHALLOW = "1"
 BB_GIT_SHALLOW_DEPTH = "1"
 

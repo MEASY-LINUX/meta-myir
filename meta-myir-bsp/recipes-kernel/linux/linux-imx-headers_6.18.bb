@@ -12,7 +12,7 @@ LINUX_IMX_SRC ?= "git:///home/myir/bsp/6.18/myir-imx-linux;protocol=file;branch=
 SRCBRANCH = "lf-6.18.y"
 LOCALVERSION = "-lts-${SRCBRANCH}"
 KBRANCH = "${SRCBRANCH}"
-SRCREV = "44213de6a50a505e25de3a499a3edd9cccc56407"
+SRCREV = "9f54c095ddef389fe17fe6850799befa2466a034"
 BB_GIT_SHALLOW = "1"
 BB_GIT_SHALLOW_DEPTH = "1"
 
