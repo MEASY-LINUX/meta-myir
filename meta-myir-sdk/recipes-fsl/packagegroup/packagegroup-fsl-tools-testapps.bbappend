@@ -1,5 +1,7 @@
 # Add needed Freescale packages and definitions
 
+RDEPENDS:${PN}:remove:myd-jmx95x-b0 = "ntp"
+
 PACKAGES += " \
     ${PN}-fslcodec-testapps \
 "
