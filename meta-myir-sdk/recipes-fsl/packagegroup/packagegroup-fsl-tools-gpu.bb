@@ -34,13 +34,15 @@ SOC_TOOLS_GPU_APITRACE:imxgpu3d = " \
 SOC_TOOLS_GPU_MALI = ""
 SOC_TOOLS_GPU_MALI:imxmali = " \
     ${@'${SOC_TOOLS_GPU_MALI_DUAL_DRIVER_MESA}' if d.getVar('IMX_MALI_DUAL_DRIVER') == '1' else ''} \
-    mali-imx-dev \
-    mali-imx-opencl-icd-dev \
+    mali-imx \
+    mali-imx-opencl-icd \
     patrace"
+# Keep headers and offline shader compilers in the SDK, not in the rootfs.
+# The runtime packages retain the SONAME links used by mali-imx-boot.
 SOC_TOOLS_GPU_MALI_DUAL_DRIVER_MESA = " \
-    libegl-mesa-dev \
-    libgles1-mesa-dev \
-    libgles2-mesa-dev"
+    libegl-mesa \
+    libgles1-mesa \
+    libgles2-mesa"
 
 SOC_TOOLS_GPU_VIVANTE = ""
 SOC_TOOLS_GPU_VIVANTE:imxviv = " \

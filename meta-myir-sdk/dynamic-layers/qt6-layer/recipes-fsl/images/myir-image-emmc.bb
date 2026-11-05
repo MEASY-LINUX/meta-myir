@@ -31,14 +31,15 @@ SDKIMAGE_FEATURES:remove = "staticdev-pkgs"
 # It has no role on i.MX95; keep the cross-toolchain, libraries and UUU tools.
 TOOLCHAIN_HOST_TASK:remove = "nativesdk-mxsldr"
 
-# Do not hard-exclude staticdev: modern Qt CMake exports may require individual
-# archives. Dependency-required archives must remain installable in the SDK.
-PACKAGE_EXCLUDE:append = " \
-    qemu \
-    qemu-common \
-    qemu-system-i386 \
-    xen-tools \
-    ntp \
+# GPU development files and offline shader compilers belong in the SDK.
+# Runtime packages are selected by packagegroup-fsl-tools-gpu. Leave all
+# dependency-required packages, including Qt static archives, installable.
+TOOLCHAIN_TARGET_TASK:append = " \
+    mali-imx-dev \
+    mali-imx-opencl-icd-dev \
+    libegl-mesa-dev \
+    libgles1-mesa-dev \
+    libgles2-mesa-dev \
 "
 
 IMAGE_INSTALL_OPENCV = ""
