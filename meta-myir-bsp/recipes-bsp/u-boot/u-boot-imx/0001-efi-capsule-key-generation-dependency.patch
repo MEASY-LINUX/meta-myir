@@ -1,0 +1,20 @@
+From: MYIR BSP <support@myir.com>
+Subject: [PATCH] efi_loader: order capsule key assembly after ESL generation
+
+efi_capsule_key.S includes capsule_esl_file, so the assembly object must
+depend on that generated file. Depending only from efi_capsule.o allows
+parallel make to assemble the key before the certificate is converted.
+
+Upstream-Status: Pending
+
+--- a/lib/efi_loader/Makefile
++++ b/lib/efi_loader/Makefile
+@@ -89,7 +89,7 @@ $(objtree)/capsule_esl_file: FORCE
+ 	fi
+ 	$(call cmd,capsule_esl_gen)
+ 
+-$(obj)/efi_capsule.o: $(objtree)/capsule_esl_file FORCE
++$(obj)/efi_capsule.o $(obj)/efi_capsule_key.o: $(objtree)/capsule_esl_file FORCE
+ asflags-y += -DCAPSULE_ESL_PATH=\"$(objtree)/capsule_esl_file\"
+ endif
+ 

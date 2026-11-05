@@ -1,0 +1,19 @@
+From: MYIR BSP <support@myir.com>
+Subject: [PATCH] board: myd_jmx95: link current NXP MMC and TCPC helpers
+
+SYS_VENDOR is myir, so the top-level Makefile does not automatically build
+board/nxp/common. Include it explicitly, following verdin-imx95, to resolve
+the board's MMC environment and USB Type-C calls without copying old APIs.
+
+Upstream-Status: Inappropriate [MYIR board integration]
+
+--- a/board/myir/myd_jmx95/Makefile
++++ b/board/myir/myd_jmx95/Makefile
+@@ -5,6 +5,7 @@
+ #
+ 
+ obj-y += myd_jmx95.o
++obj-y += ../../nxp/common/
+ 
+ ifdef CONFIG_SPL_BUILD
+ obj-y += spl.o
