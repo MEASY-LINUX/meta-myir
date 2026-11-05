@@ -1,0 +1,14 @@
+[Unit]
+Description=Explicitly authorized MYD-JMX95 factory eMMC provisioning
+After=local-fs.target
+ConditionPathExists=/run/myir-factory-burn-authorized
+
+[Service]
+Type=oneshot
+ExecStart=@SBINDIR@/myir-burn-emmc --execute --confirm ERASE-MYD-JMX95-EMMC
+TimeoutStartSec=infinity
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target

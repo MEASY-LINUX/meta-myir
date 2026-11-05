@@ -1,0 +1,184 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+set -euo pipefail
+
+fail() { echo "ERROR: $*" >&2; exit 1; }
+
+# Pure geometry calculation: --plan never opens a device or changes a file.
+plan() {
+    local layout=$1 total=$2 bytes=$3
+    [[ $total =~ ^[1-9][0-9]{0,6}$ ]] || fail "Invalid capacity in MiB"
+    [[ $bytes =~ ^[1-9][0-9]{0,12}$ ]] || fail "Invalid rootfs size in bytes"
+    (( total < 2097152 )) || fail "MBR layout requires a device below 2 TiB"
+    local boot=200 count=1
+    case "$layout" in
+        single) ;;
+        ab) boot=280; count=2 ;;
+        *) fail "Layout must be single or ab" ;;
+    esac
+    local slot=$(( (total - 10 - boot * count - 50) / count ))
+    (( slot * 1048576 >= bytes + 64 * 1048576 )) || fail "Rootfs does not fit each slot with 64 MiB growth space"
+    echo 'label: dos'
+    echo 'unit: sectors'
+    echo "start=20480, size=$((boot * 2048)), type=c, bootable"
+    echo "start=$(((10 + boot) * 2048)), size=$((slot * 2048)), type=83"
+    if [[ $layout == ab ]]; then
+        echo "start=$(((10 + boot + slot) * 2048)), size=$((boot * 2048)), type=c"
+        echo "start=$(((10 + 2 * boot + slot) * 2048)), size=$((slot * 2048)), type=83"
+    fi
+}
+
+if [[ ${1:-} == --plan ]]; then
+    [[ $# == 4 ]] || fail "Usage: myir-burn-emmc --plan single|ab EMMC_MIB ROOTFS_BYTES"
+    plan "$2" "$3" "$4"
+    exit 0
+fi
+if [[ ${1:-} == --help ]]; then
+    echo 'myir-burn-emmc [--check]'
+    echo 'myir-burn-emmc --execute --confirm ERASE-MYD-JMX95-EMMC'
+    echo 'myir-burn-emmc --plan single|ab EMMC_MIB ROOTFS_BYTES'
+    exit 0
+fi
+
+execute=no
+case "$*" in
+    ''|--check) ;;
+    '--execute --confirm ERASE-MYD-JMX95-EMMC') execute=yes ;;
+    *) fail "Use --help; execution requires the exact confirmation token" ;;
+esac
+
+[[ $EUID == 0 ]] || fail "Board checks require root"
+for cmd in blockdev findmnt lsblk flock sha256sum stat du sfdisk wipefs partx \
+           udevadm mkfs.vfat mount umount dd cmp e2fsck resize2fs tune2fs mmc; do
+    command -v "$cmd" >/dev/null || fail "Missing command: $cmd"
+done
+
+if [[ $execute == yes ]]; then
+    exec 9>/run/myir-factory-burn.lock
+    flock -n 9 || fail "Another burn is in progress"
+fi
+
+device=/dev/mmcblk0
+payload=@ROOT_HOME@/mfgimage
+layout=@LAYOUT@
+[[ -r /proc/device-tree/compatible ]] || fail "Missing board identity"
+tr '\0' '\n' < /proc/device-tree/compatible | grep -qx 'myir,myd-jmx95-15x15' || fail "Not a MYD-JMX95 board"
+[[ -b $device && $(</sys/class/block/mmcblk0/device/type) == MMC ]] || fail "mmcblk0 is not eMMC"
+[[ $(blockdev --getro "$device") == 0 ]] || fail "eMMC is read-only"
+root_id=$(findmnt -n -o MAJ:MIN /)
+root_node=$(basename "$(readlink -f "/sys/dev/block/$root_id")")
+[[ $root_node == mmcblk1p2 ]] || fail "Factory image must be running from SD mmcblk1p2, found $root_node"
+if lsblk -nr -o MOUNTPOINT "$device" | grep -q '[^[:space:]]'; then
+    fail "An eMMC partition is mounted or used as swap"
+fi
+for node in /sys/class/block/mmcblk0 /sys/class/block/mmcblk0p* \
+            /sys/class/block/mmcblk0boot0 /sys/class/block/mmcblk0boot1; do
+    if compgen -G "$node/holders/*" >/dev/null; then
+        fail "An eMMC device has active holders"
+    fi
+done
+for index in 0 1; do
+    [[ -b /dev/mmcblk0boot$index && -w /sys/class/block/mmcblk0boot$index/force_ro ]] || fail "Missing eMMC boot partition $index"
+    if lsblk -nr -o MOUNTPOINT "/dev/mmcblk0boot$index" | grep -q '[^[:space:]]'; then
+        fail "eMMC boot partition $index is mounted or used as swap"
+    fi
+done
+[[ -s $payload/imx-boot && -s $payload/rootfs-full.ext4 && -s $payload/kernel_dtb/Image ]] || fail "Incomplete factory payload"
+[[ -s $payload/kernel_dtb/myd-jmx95-15x15-lt9611-lvds1-ov5640.dtb ]] || fail "Missing default board DTB"
+(cd "$payload" && sha256sum --strict -c SHA256SUMS)
+rootfs_bytes=$(stat -c %s "$payload/rootfs-full.ext4")
+boot_bytes=$(stat -c %s "$payload/imx-boot")
+capacity=$(( $(blockdev --getsize64 "$device") / 1048576 ))
+table=$(plan "$layout" "$capacity" "$rootfs_bytes")
+for index in 0 1; do
+    (( boot_bytes <= $(blockdev --getsize64 /dev/mmcblk0boot$index) )) || fail "Bootloader exceeds boot partition capacity"
+done
+boot_mib=200
+[[ $layout != ab ]] || boot_mib=280
+boot_files_bytes=$(du -sb "$payload/kernel_dtb")
+boot_files_bytes=${boot_files_bytes%%[[:space:]]*}
+(( boot_files_bytes < (boot_mib - 16) * 1048576 )) || fail "Boot files exceed FAT partition capacity"
+echo "Target: $device; layout: $layout; capacity: $capacity MiB"
+echo "$table"
+[[ $execute == yes ]] || { echo 'Checks passed. No device was modified.'; exit 0; }
+
+mountpoint=$(mktemp -d /run/myir-burn.XXXXXX)
+mounted=no
+cleanup() {
+    local result=$?
+    trap - EXIT
+    if [[ $mounted == yes ]]; then
+        umount "$mountpoint" || result=1
+    fi
+    for index in 0 1; do
+        echo 1 > /sys/class/block/mmcblk0boot$index/force_ro || result=1
+    done
+    rmdir "$mountpoint" || result=1
+    (( result == 0 )) || echo 'Burn failed; do not boot from eMMC.' >&2
+    exit "$result"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+# All destructive operations are below the identity, payload and capacity checks.
+if lsblk -nr -o MOUNTPOINT "$device" /dev/mmcblk0boot0 /dev/mmcblk0boot1 | grep -q '[^[:space:]]'; then
+    fail "eMMC became mounted during verification"
+fi
+echo 'Erasing eMMC user-area partition metadata and old U-Boot environment.'
+wipefs --all --force "$device"
+dd if=/dev/zero of="$device" bs=1M count=10 conv=fsync
+sfdisk --wipe always --wipe-partitions always "$device" <<< "$table"
+partx -u "$device"
+udevadm settle
+last=2
+[[ $layout != ab ]] || last=4
+for ((attempt=0; attempt<20; attempt++)); do
+    [[ -b ${device}p${last} ]] && break
+    sleep 1
+done
+[[ -b ${device}p${last} ]] || fail "Partition nodes did not appear"
+
+boots=(1)
+roots=(2)
+[[ $layout != ab ]] || { boots+=(3); roots+=(4); }
+for index in "${boots[@]}"; do
+    label=BOOT_A
+    [[ $index == 1 ]] || label=BOOT_B
+    mkfs.vfat -n "$label" "${device}p$index"
+    mount -t vfat "${device}p$index" "$mountpoint"
+    mounted=yes
+    cp -r "$payload/kernel_dtb/." "$mountpoint/"
+    sync
+    while IFS= read -r -d '' file; do
+        cmp "$file" "$mountpoint/${file#"$payload/kernel_dtb/"}"
+    done < <(find "$payload/kernel_dtb" -type f -print0)
+    umount "$mountpoint"
+    mounted=no
+done
+
+for index in "${roots[@]}"; do
+    partition=${device}p$index
+    (( $(blockdev --getsize64 "$partition") >= rootfs_bytes )) || fail "Rootfs partition too small"
+    dd if="$payload/rootfs-full.ext4" of="$partition" bs=4M conv=fsync
+    cmp -n "$rootfs_bytes" "$payload/rootfs-full.ext4" "$partition"
+    if e2fsck -pf "$partition"; then :; else
+        result=$?
+        [[ $result == 1 ]] || fail "Filesystem check failed with $result"
+    fi
+    resize2fs "$partition"
+    label=ROOTFS_A
+    [[ $index == 2 ]] || label=ROOTFS_B
+    tune2fs -U random -L "$label" "$partition"
+done
+
+for index in 0 1; do
+    echo 0 > /sys/class/block/mmcblk0boot$index/force_ro
+    dd if="$payload/imx-boot" of="/dev/mmcblk0boot$index" bs=1M conv=fsync
+    cmp -n "$boot_bytes" "$payload/imx-boot" "/dev/mmcblk0boot$index"
+    echo 1 > /sys/class/block/mmcblk0boot$index/force_ro
+done
+sync
+# Change the eMMC boot selection only after all payload verification succeeds.
+mmc bootpart enable 1 1 "$device"
+echo 'eMMC provisioning completed. Power off and select eMMC boot manually.'
