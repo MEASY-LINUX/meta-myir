@@ -17,7 +17,7 @@ set -u
 cmake -S "$smoke_source" -B "$smoke_output" -G Ninja \
     -DCMAKE_TOOLCHAIN_FILE="$OECORE_NATIVE_SYSROOT/usr/share/cmake/OEToolchainConfig.cmake"
 cmake --build "$smoke_output"
-for executable in runtime-smoke qt-smoke opencv-smoke; do
+for executable in runtime-smoke graphics-smoke qt-smoke opencv-smoke; do
     # Cross-built executables must not run on the build host.
     LC_ALL=C ${READELF:-readelf} -h "$smoke_output/$executable" | grep -q 'Machine:.*AArch64'
     LC_ALL=C ${READELF:-readelf} -d "$smoke_output/$executable"
