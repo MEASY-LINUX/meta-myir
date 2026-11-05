@@ -27,6 +27,9 @@ CORE_IMAGE_EXTRA_INSTALL:remove = "docker"
 # development metadata in the SDK, but does not require every static archive.
 SDKIMAGE_FEATURES:remove = "staticdev-pkgs"
 
+# The common i.MX SDK also lists the i.MX233/i.MX28-only USB loader.
+# It has no role on i.MX95; keep the cross-toolchain, libraries and UUU tools.
+TOOLCHAIN_HOST_TASK:remove = "nativesdk-mxsldr"
 
 # Do not hard-exclude staticdev: modern Qt CMake exports may require individual
 # archives. Dependency-required archives must remain installable in the SDK.
