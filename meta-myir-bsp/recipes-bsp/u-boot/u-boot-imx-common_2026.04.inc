@@ -8,7 +8,7 @@ SRC_URI = "${UBOOT_SRC};branch=${SRCBRANCH}"
 UBOOT_SRC ?= "git:///home/myir/bsp/6.18/u-boot-imx;protocol=file"
 SRCBRANCH = "lf_v2026.04"
 LOCALVERSION ?= "-${SRCBRANCH}"
-SRCREV = "546e8970acfb60b1e2d5ed53d61628e9b39eba00"
+SRCREV = "a1fdcaf045110146197b7936807815dfd114cbe0"
 BB_GIT_SHALLOW = "1"
 BB_GIT_SHALLOW_DEPTH = "1"
 
