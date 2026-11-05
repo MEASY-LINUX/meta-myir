@@ -6,8 +6,12 @@ LIC_FILES_CHKSUM = "file://LICENSE.md;md5=5536c2b72eeed14bafaf4d2a6c032b87"
 
 SRCREV = "cd94206b0fd995bfb3e5ed95c1e68d4f5d38ea7e"
 SRC_URI = " \
-    git://github.com/baldurk/${BPN}.git;protocol=https;branch=v1.x \
+    https://codeload.github.com/baldurk/${BPN}/tar.gz/${SRCREV};downloadfilename=${BPN}-${SRCREV}.tar.gz \
 "
+SRC_URI[sha256sum] = "aecbff4d72bb3df5f02fa4211dabebde9b12dcd42bb8221417c9e4a0b334bce8"
+INSANE_SKIP += "src-uri-bad"
+
+S = "${UNPACKDIR}/${BPN}-${SRCREV}"
 
 DEPENDS += "virtual/libx11 virtual/libgl libxcb xcb-util-keysyms"
 
