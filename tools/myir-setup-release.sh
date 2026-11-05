@@ -33,20 +33,14 @@ exit_message ()
 usage()
 {
     echo ""
-    echo "Usage: source imx-setup-release.sh [OPTIONS]"
+    echo "Usage: source sources/meta-myir/tools/myir-setup-release.sh [OPTIONS]"
     echo ""
     echo "Optional parameters:"
     echo "  -b BUILD_DIR    Specify build directory (default: 'build')"
     echo "  -h              Display this help message"
     echo ""
-    echo "Supported machines:"
-    ls sources/meta-freescale/conf/machine/*.conf \
-       sources/meta-myir/meta-myir-bsp/conf/machine/*.conf 2>/dev/null \
-        | grep -E '/(imx[6789]|myd-).*\.conf$' \
-        | sed 's/\.conf//g' \
-        | sed -r 's/^.+\///' \
-        | sort \
-        | sed 's/^/  /'
+    echo "Supported machine:"
+    echo "  myd-jmx95x-b0"
     echo ""
     echo "Supported NXP's i.MX distros:"
     ls sources/meta-myir/meta-myir-sdk/conf/distro/fsl-*.conf 2>/dev/null \
@@ -110,26 +104,29 @@ fi
 
 if [ -z "$MACHINE" ]; then
     echo setting to default machine
-    MACHINE='imx6qpsabresd'
+    MACHINE='myd-jmx95x-b0'
 fi
 
-case $MACHINE in
-imx6*|imx7*)
+if [ "$MACHINE" != "myd-jmx95x-b0" ]; then
+    echo "ERROR: This project supports only MACHINE=myd-jmx95x-b0."
+    return 1
+fi
+
+case $FSLDISTRO in
+*wayland*)
     : ok
     ;;
 *)
-    case $FSLDISTRO in
-    *wayland*)
-        : ok
-        ;;
-    *)
-        echo -e "\n ERROR - Only Wayland distros are supported for $MACHINE"
-        echo -e "\n"
-        return 1
-        ;;
-    esac
+    echo "ERROR: Only Wayland distros are supported for $MACHINE."
+    return 1
     ;;
 esac
+
+if [ ! -f "$CWD/sources/meta-swupdate/conf/layer.conf" ]; then
+    echo "ERROR: Missing sources/meta-swupdate (wrynose)."
+    echo "See sources/meta-myir/docs/myd-jmx95x-update-port.md."
+    return 1
+fi
 
 # Override the click-through in meta-freescale
 FSL_EULA_FILE=$CWD/sources/meta-myir/LICENSE.txt
@@ -191,6 +188,7 @@ echo "BBLAYERS += \"\${BSPDIR}/sources/meta-security/meta-parsec\"" >> $BUILD_DI
 echo "BBLAYERS += \"\${BSPDIR}/sources/meta-security/meta-tpm\"" >> $BUILD_DIR/conf/bblayers.conf
 echo "BBLAYERS += \"\${BSPDIR}/sources/meta-virtualization\"" >> $BUILD_DIR/conf/bblayers.conf
 echo "BBLAYERS += \"\${BSPDIR}/sources/meta-freescale-ml\"" >> $BUILD_DIR/conf/bblayers.conf
+echo "BBLAYERS += \"\${BSPDIR}/sources/meta-swupdate\"" >> $BUILD_DIR/conf/bblayers.conf
 
 # NXP development board images are more useful with the empty root password.
 echo -e "\n====================================== Important Note =========================================="
