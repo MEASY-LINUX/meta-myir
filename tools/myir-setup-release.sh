@@ -42,7 +42,7 @@ usage()
     echo "Supported machines:"
     ls sources/meta-freescale/conf/machine/*.conf \
        sources/meta-myir/meta-myir-bsp/conf/machine/*.conf 2>/dev/null \
-        | egrep "/(imx6|imx7|imx8|imx9).*conf$" \
+        | grep -E '/(imx[6789]|myd-).*\.conf$' \
         | sed 's/\.conf//g' \
         | sed -r 's/^.+\///' \
         | sort \
