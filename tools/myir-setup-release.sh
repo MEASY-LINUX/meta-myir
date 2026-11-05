@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-. sources/meta-imx/tools/setup-utils.sh
+. sources/meta-myir/tools/setup-utils.sh
 
 CWD=`pwd`
 PROGNAME="setup-environment"
@@ -41,7 +41,7 @@ usage()
     echo ""
     echo "Supported machines:"
     ls sources/meta-freescale/conf/machine/*.conf \
-       sources/meta-imx/meta-imx-bsp/conf/machine/*.conf 2>/dev/null \
+       sources/meta-myir/meta-myir-bsp/conf/machine/*.conf 2>/dev/null \
         | egrep "/(imx6|imx7|imx8|imx9).*conf$" \
         | sed 's/\.conf//g' \
         | sed -r 's/^.+\///' \
@@ -49,7 +49,7 @@ usage()
         | sed 's/^/  /'
     echo ""
     echo "Supported NXP's i.MX distros:"
-    ls sources/meta-imx/meta-imx-sdk/conf/distro/fsl-*.conf 2>/dev/null \
+    ls sources/meta-myir/meta-myir-sdk/conf/distro/fsl-*.conf 2>/dev/null \
         | sed 's/\.conf//g' \
         | sed -r 's/^.+\///' \
         | sort \
@@ -132,7 +132,7 @@ imx6*|imx7*)
 esac
 
 # Override the click-through in meta-freescale
-FSL_EULA_FILE=$CWD/sources/meta-imx/LICENSE.txt
+FSL_EULA_FILE=$CWD/sources/meta-myir/LICENSE.txt
 
 # Set up the basic yocto environment
 DISTRO=$FSLDISTRO MACHINE=$MACHINE . ./$PROGNAME $BUILD_DIR
@@ -166,14 +166,14 @@ else
 fi
 
 
-META_FSL_BSP_RELEASE="${CWD}/sources/meta-imx/meta-imx-bsp"
+META_FSL_BSP_RELEASE="${CWD}/sources/meta-myir/meta-myir-bsp"
 
 echo "" >> $BUILD_DIR/conf/bblayers.conf
 echo "# i.MX Yocto Project Release layers" >> $BUILD_DIR/conf/bblayers.conf
-hook_in_layer meta-imx/meta-imx-bsp
-hook_in_layer meta-imx/meta-imx-sdk
-hook_in_layer meta-imx/meta-imx-ml
-hook_in_layer meta-imx/meta-imx-v2x
+hook_in_layer meta-myir/meta-myir-bsp
+hook_in_layer meta-myir/meta-myir-sdk
+hook_in_layer meta-myir/meta-myir-ml
+hook_in_layer meta-myir/meta-myir-v2x
 hook_in_layer meta-nxp-demo-experience
 hook_in_layer meta-nxp-connectivity/meta-nxp-matter-baseline
 hook_in_layer meta-nxp-connectivity/meta-nxp-openthread
