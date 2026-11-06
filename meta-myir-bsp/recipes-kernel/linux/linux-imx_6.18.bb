@@ -21,7 +21,7 @@ SRC_URI = "${LINUX_IMX_SRC}"
 LINUX_IMX_SRC ?= "git:///home/myir/bsp/6.18/myir-imx-linux;protocol=file;branch=${SRCBRANCH}"
 SRCBRANCH = "lf-6.18.y"
 KBRANCH = "${SRCBRANCH}"
-SRCREV = "c6ceb07fa4190cf1fd11e779804c00dd1a04c671"
+SRCREV = "8905ea64dc826209e899e75caf0d4ed09f8bb515"
 BB_GIT_SHALLOW = "1"
 BB_GIT_SHALLOW_DEPTH = "1"
 
