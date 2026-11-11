@@ -1,3 +1,2 @@
-# FIXME: Drop this when meta-flutter is migrated to Styhead
-S = "${WORKDIR}/sources"
-UNPACKDIR = "${S}"
+# meta-flutter unpacks its files straight into S; Yocto >= 5.1 splits UNPACKDIR from WORKDIR.
+S = "${UNPACKDIR}"

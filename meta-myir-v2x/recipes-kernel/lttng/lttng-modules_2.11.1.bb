@@ -16,7 +16,7 @@ SRC_URI = "https://lttng.org/files/${BPN}/${BPN}-${PV}.tar.bz2 \
 
 SRC_URI[sha256sum] = "d3e5648937e59dee983ef844f9316c55e9961f9dc8515b9260c473bbb70696c1"
 
-export INSTALL_MOD_DIR="kernel/lttng-modules"
+export INSTALL_MOD_DIR = "kernel/lttng-modules"
 
 EXTRA_OEMAKE += "KERNELDIR='${STAGING_KERNEL_DIR}'"
 
@@ -39,6 +39,5 @@ SRC_URI:class-devupstream = "git://git.lttng.org/lttng-modules;branch=stable-2.1
            "
 SRCREV:class-devupstream = "6ad0e68b43c3e52fcb3d47c4d823a7b84aeb443a"
 PV:class-devupstream = "2.11.1+git${SRCPV}"
-S:class-devupstream = "${WORKDIR}/git"
 SRCREV_FORMAT ?= "lttng_git"
 
