@@ -9,7 +9,7 @@ COMPATIBLE_MACHINE = "(myd-jmx95x-b0)"
 
 # Reuse the current BSP package/API definitions instead of carrying a copy from
 # the older Yocto release.
-require recipes-fsl/images/imx-image-multimedia.bb
+require recipes-fsl/images/myir-image-multimedia.bb
 
 inherit populate_sdk_qt6
 
@@ -46,7 +46,6 @@ IMAGE_INSTALL_OPENCV = ""
 IMAGE_INSTALL_OPENCV:imxgpu = "${IMAGE_INSTALL_OPENCV_PKGS}"
 IMAGE_INSTALL_OPENCV_PKGS = " \
     opencv-apps \
-    opencv-samples \
     python3-opencv \
 "
 
@@ -62,10 +61,6 @@ IMAGE_INSTALL_PARSEC = " \
 IMAGE_INSTALL_PKCS11 = "opensc pkcs11-provider"
 
 IMAGE_INSTALL:append = " \
-    packagegroup-myir-jmx95 \
-    myir-hmi \
-    curl \
-    tzdata \
     packagegroup-qt6-imx \
     qtvirtualkeyboard \
     qtimageformats \

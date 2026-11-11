@@ -90,11 +90,8 @@ ARA240_PKGS:mx95-nxp-bsp  = "imx-nxp-ara2"
 ARA240_PKGS:mx952-nxp-bsp = ""
 
 RDEPENDS:${PN} = " \
-    ${ML_PKGS} \
     ${ML_ACCELERATED_PKGS} \
-    ${ML_NNSTREAMER_PKGS} \
     ${ML_GST_PROFILER} \
     ${ETHOS_U_PKGS} \
-    ${NEUTRON_PKGS} \
     ${ARA240_PKGS} \
 "

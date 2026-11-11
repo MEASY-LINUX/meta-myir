@@ -15,6 +15,9 @@ RDEPENDS:${PN} = " \
     ${SOC_TOOLS_NO_GPU} \
 "
 
+# Keep the runtime GPU stack while omitting the 1 GiB validation demo suite.
+RDEPENDS:${PN}:remove:myd-jmx95x-b0 = "imx-gpu-sdk"
+
 SOC_TOOLS_DRM ??= ""
 SOC_TOOLS_DRM:imxdrm ??= " \
     libdrm-tests"
