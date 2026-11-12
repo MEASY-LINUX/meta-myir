@@ -2,17 +2,79 @@
 # setup-touch-clone - dynamically set touch-to-output mapping and calibration
 # Reads weston.ini clone-mode config and generates correct WL_OUTPUT rules + calibration
 
-WESTON_INI=/etc/xdg/weston/weston.ini
-RULES_FILE=/etc/udev/rules.d/80-touch-output.rules
+WESTON_INI=${WESTON_INI:-/etc/xdg/weston/weston.ini}
+RULES_FILE=${RULES_FILE:-/etc/udev/rules.d/80-touch-output.rules}
+DRM_CLASS=${DRM_CLASS:-/sys/class/drm}
+WESTON_CLEAN="${WESTON_INI}.clean.$$"
+WESTON_TMP="${WESTON_INI}.tmp.$$"
+
+cleanup() {
+    rm -f "$WESTON_CLEAN" "$WESTON_TMP"
+}
+
+trap cleanup 0
+trap 'exit 1' 1 2 15
+
+get_output_by_connector_id() {
+    wanted_id=$1
+
+    for id_file in "$DRM_CLASS"/card*-*/connector_id; do
+        [ -r "$id_file" ] || continue
+        [ "$(cat "$id_file")" = "$wanted_id" ] || continue
+
+        output=${id_file%/connector_id}
+        output=${output##*/}
+        printf '%s\n' "${output#*-}"
+        return 0
+    done
+
+    return 1
+}
+
+discover_connected_outputs() {
+    LVDS_OUT_1=""
+    LVDS_OUT_2=""
+    HDMI_OUT=""
+
+    for status_file in "$DRM_CLASS"/card*-LVDS-*/status; do
+        [ -r "$status_file" ] || continue
+        [ "$(cat "$status_file")" = "connected" ] || continue
+
+        output=${status_file%/status}
+        output=${output##*/}
+        output=${output#*-}
+
+        if [ -z "$LVDS_OUT_1" ]; then
+            LVDS_OUT_1=$output
+        elif [ -z "$LVDS_OUT_2" ]; then
+            LVDS_OUT_2=$output
+        fi
+    done
+
+    for status_file in "$DRM_CLASS"/card*-HDMI-A-*/status; do
+        [ -r "$status_file" ] || continue
+        [ "$(cat "$status_file")" = "connected" ] || continue
+
+        HDMI_OUT=${status_file%/status}
+        HDMI_OUT=${HDMI_OUT##*/}
+        HDMI_OUT=${HDMI_OUT#*-}
+        break
+    done
+}
 
 # Parse weston.ini
-CLONE_MODE=$(sed -n '/^\[core\]/,/^\[/{s/^clone-mode=//p}' $WESTON_INI 2>/dev/null)
-CLONE_SRC=$(sed -n '/^\[core\]/,/^\[/{s/^clone-connector-id=//p}' $WESTON_INI 2>/dev/null)
-CLONE_EXTEND=$(sed -n '/^\[core\]/,/^\[/{s/^extend-connector-id=//p}' $WESTON_INI 2>/dev/null)
+CLONE_MODE=$(sed -n '/^\[core\]/,/^\[/{s/^clone-mode=//p}' "$WESTON_INI" 2>/dev/null)
+CLONE_SRC=$(sed -n '/^\[core\]/,/^\[/{s/^clone-connector-id=//p}' "$WESTON_INI" 2>/dev/null)
+CLONE_EXTEND=$(sed -n '/^\[core\]/,/^\[/{s/^extend-connector-id=//p}' "$WESTON_INI" 2>/dev/null)
+discover_connected_outputs
 
-# Remove existing calibrator sections and their leading separator.  Buffer
-# blank lines until the next non-blank line so trailing blanks are discarded
-# instead of accumulating every time this helper runs.
+# Remove NUL bytes left by an interrupted/overlapping older writer before
+# rebuilding the generated sections. Keep the live config untouched until the
+# complete replacement has been built successfully.
+tr -d '\000' < "$WESTON_INI" > "$WESTON_CLEAN" || exit 1
+
+# Remove existing calibrator sections and their leading separator. Buffer blank
+# lines until the next non-blank line so trailing blanks do not accumulate.
 awk '
     BEGIN { skip=0; blanks="" }
     /^\[touchscreen-calibrator\]/ { skip=1; blanks=""; next }
@@ -20,11 +82,12 @@ awk '
     skip { next }
     /^[[:space:]]*$/ { blanks=blanks $0 ORS; next }
     { printf "%s", blanks; blanks=""; print }
-' "$WESTON_INI" > "$WESTON_INI.tmp" && mv "$WESTON_INI.tmp" "$WESTON_INI"
+' "$WESTON_CLEAN" > "$WESTON_TMP" || exit 1
+rm -f "$WESTON_CLEAN"
 
 add_calib() {
     # $1=name, $2=output, $3=sx, $4=sy
-    cat >> "$WESTON_INI" << EOF
+    cat >> "$WESTON_TMP" << EOF || exit 1
 
 [touchscreen-calibrator]
 name=$1
@@ -38,7 +101,7 @@ EOF
 # Resolve the connector name at runtime so this also works if its DRM card
 # number changes.
 DSI_OUT=""
-for status_file in /sys/class/drm/card*-DSI-*/status; do
+for status_file in "$DRM_CLASS"/card*-DSI-*/status; do
     [ -r "$status_file" ] || continue
     [ "$(cat "$status_file")" = "connected" ] || continue
 
@@ -49,46 +112,71 @@ for status_file in /sys/class/drm/card*-DSI-*/status; do
 done
 
 if [ "$CLONE_MODE" = "1" ] && [ -n "$CLONE_SRC" ] && [ "$CLONE_SRC" != "0" ]; then
-    case "$CLONE_SRC" in
-        53) SOURCE_OUT="LVDS-1" ;;
-        42) SOURCE_OUT="HDMI-A-1" ;;
-        *)  SOURCE_OUT="LVDS-1" ;;
-    esac
+    SOURCE_OUT=$(get_output_by_connector_id "$CLONE_SRC")
+    if [ -z "$SOURCE_OUT" ]; then
+        echo "touch-clone: connector id $CLONE_SRC not found" >&2
+        exit 1
+    fi
 
     if [ "$CLONE_EXTEND" = "0" ] || [ -z "$CLONE_EXTEND" ]; then
-        cat > $RULES_FILE << EOF
+        cat > "$RULES_FILE" << EOF
 # Clone mode: all touchscreens -> $SOURCE_OUT
 SUBSYSTEM=="input", ENV{ID_INPUT_TOUCHSCREEN}=="1", ENV{WL_OUTPUT}="$SOURCE_OUT"
 EOF
 
-        if [ "$SOURCE_OUT" = "LVDS-1" ]; then
-            add_calib "generic ft5x06 (79)" "LVDS-1" "1.0" "1.0"
-            add_calib "ILITEK ILITEK-TP" "LVDS-1" "0.5333" "0.5555"
-        else
-            add_calib "ILITEK ILITEK-TP" "HDMI-A-1" "1.0" "1.0"
-            add_calib "generic ft5x06 (79)" "HDMI-A-1" "1.875" "1.8"
-        fi
+        case "$SOURCE_OUT" in
+            LVDS-*)
+                add_calib "generic ft5x06 (79)" "$SOURCE_OUT" "1.0" "1.0"
+                add_calib "ILITEK ILITEK-TP" "$SOURCE_OUT" "0.5333" "0.5555"
+                ;;
+            HDMI-A-*)
+                add_calib "ILITEK ILITEK-TP" "$SOURCE_OUT" "1.0" "1.0"
+                add_calib "generic ft5x06 (79)" "$SOURCE_OUT" "1.875" "1.8"
+                ;;
+            *)
+                add_calib "generic ft5x06 (79)" "$SOURCE_OUT" "1.0" "1.0"
+                add_calib "ILITEK ILITEK-TP" "$SOURCE_OUT" "1.0" "1.0"
+                ;;
+        esac
         echo "touch-clone: clone($SOURCE_OUT source), all touches -> $SOURCE_OUT"
 
     else
-        cat > $RULES_FILE << EOF
+        EXTEND_OUT=$(get_output_by_connector_id "$CLONE_EXTEND")
+        [ -n "$EXTEND_OUT" ] || EXTEND_OUT=${HDMI_OUT:-HDMI-A-1}
+
+        cat > "$RULES_FILE" << EOF
 # Clone+extend mode
 SUBSYSTEM=="input", ENV{ID_INPUT_TOUCHSCREEN}=="1", DEVPATH=="*/i2c*", ENV{WL_OUTPUT}="$SOURCE_OUT"
-SUBSYSTEM=="input", ENV{ID_INPUT_TOUCHSCREEN}=="1", DEVPATH=="*/usb*", ENV{WL_OUTPUT}="HDMI-A-1"
+SUBSYSTEM=="input", ENV{ID_INPUT_TOUCHSCREEN}=="1", DEVPATH=="*/usb*", ENV{WL_OUTPUT}="$EXTEND_OUT"
 EOF
         add_calib "generic ft5x06 (79)" "$SOURCE_OUT" "1.0" "1.0"
-        add_calib "ILITEK ILITEK-TP" "HDMI-A-1" "1.0" "1.0"
+        add_calib "ILITEK ILITEK-TP" "$EXTEND_OUT" "1.0" "1.0"
         echo "touch-clone: clone+extend"
     fi
 else
-    cat > $RULES_FILE << EOF
-# Extend mode: I2C -> LVDS, USB -> HDMI
-SUBSYSTEM=="input", ENV{ID_INPUT_TOUCHSCREEN}=="1", DEVPATH=="*/i2c*", ENV{WL_OUTPUT}="LVDS-1"
-SUBSYSTEM=="input", ENV{ID_INPUT_TOUCHSCREEN}=="1", DEVPATH=="*/usb*", ENV{WL_OUTPUT}="HDMI-A-1"
+    if [ -n "$LVDS_OUT_2" ]; then
+        LVDS0_OUT=$LVDS_OUT_1
+        LVDS1_OUT=$LVDS_OUT_2
+    elif [ -n "$LVDS_OUT_1" ]; then
+        # A single enabled LVDS connector is always numbered LVDS-1 by DRM,
+        # regardless of which physical LVDS interface it represents.
+        LVDS0_OUT=$LVDS_OUT_1
+        LVDS1_OUT=$LVDS_OUT_1
+    else
+        # Keep useful fallback rules if Weston starts before DRM status exists.
+        LVDS0_OUT=LVDS-1
+        LVDS1_OUT=LVDS-2
+    fi
+    HDMI_OUT=${HDMI_OUT:-HDMI-A-1}
+
+    cat > "$RULES_FILE" << EOF
+# Extend mode: each LVDS touch follows its physical connector
+SUBSYSTEM=="input", ENV{ID_INPUT_TOUCHSCREEN}=="1", KERNELS=="44350000.i2c", ENV{WL_OUTPUT}="$LVDS0_OUT"
+SUBSYSTEM=="input", ENV{ID_INPUT_TOUCHSCREEN}=="1", KERNELS=="42530000.i2c", ENV{WL_OUTPUT}="$LVDS1_OUT"
+SUBSYSTEM=="input", ENV{ID_INPUT_TOUCHSCREEN}=="1", DEVPATH=="*/usb*", ENV{WL_OUTPUT}="$HDMI_OUT"
 EOF
-    add_calib "generic ft5x06 (79)" "LVDS-1" "1.0" "1.0"
-    add_calib "ILITEK ILITEK-TP" "HDMI-A-1" "1.0" "1.0"
-    echo "touch-clone: extend mode, I2C->LVDS-1, USB->HDMI-A-1"
+    add_calib "ILITEK ILITEK-TP" "$HDMI_OUT" "1.0" "1.0"
+    echo "touch-clone: extend mode, 44350000.i2c->$LVDS0_OUT, 42530000.i2c->$LVDS1_OUT, USB->$HDMI_OUT"
 fi
 
 if [ -n "$DSI_OUT" ]; then
@@ -100,5 +188,11 @@ EOF
     echo "touch-clone: Goodix touchscreen -> $DSI_OUT"
 fi
 
-udevadm control --reload-rules
-udevadm trigger --subsystem-match=input
+mv "$WESTON_TMP" "$WESTON_INI" || exit 1
+WESTON_TMP=""
+trap - 0 1 2 15
+
+if [ -z "$SKIP_UDEV_RELOAD" ]; then
+    udevadm control --reload-rules
+    udevadm trigger --subsystem-match=input
+fi
