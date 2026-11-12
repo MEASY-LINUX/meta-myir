@@ -5,15 +5,33 @@
 WESTON_INI=${WESTON_INI:-/etc/xdg/weston/weston.ini}
 RULES_FILE=${RULES_FILE:-/etc/udev/rules.d/80-touch-output.rules}
 DRM_CLASS=${DRM_CLASS:-/sys/class/drm}
-WESTON_CLEAN="${WESTON_INI}.clean.$$"
-WESTON_TMP="${WESTON_INI}.tmp.$$"
+WESTON_CLEAN=""
+WESTON_TMP=""
+RULES_TMP=""
+RULES_BACKUP=""
 
 cleanup() {
-    rm -f "$WESTON_CLEAN" "$WESTON_TMP"
+    [ -z "$WESTON_CLEAN" ] || rm -f "$WESTON_CLEAN"
+    [ -z "$WESTON_TMP" ] || rm -f "$WESTON_TMP"
+    [ -z "$RULES_TMP" ] || rm -f "$RULES_TMP"
+    [ -z "$RULES_BACKUP" ] || rm -f "$RULES_BACKUP"
 }
 
 trap cleanup 0
 trap 'exit 1' 1 2 15
+
+WESTON_CLEAN=$(mktemp "${WESTON_INI}.clean.XXXXXX") || {
+    echo "touch-clone: cannot create temporary file for $WESTON_INI" >&2
+    exit 1
+}
+WESTON_TMP=$(mktemp "${WESTON_INI}.tmp.XXXXXX") || {
+    echo "touch-clone: cannot create replacement for $WESTON_INI" >&2
+    exit 1
+}
+RULES_TMP=$(mktemp "${RULES_FILE}.tmp.XXXXXX") || {
+    echo "touch-clone: cannot create replacement for $RULES_FILE" >&2
+    exit 1
+}
 
 get_output_by_connector_id() {
     wanted_id=$1
@@ -119,7 +137,7 @@ if [ "$CLONE_MODE" = "1" ] && [ -n "$CLONE_SRC" ] && [ "$CLONE_SRC" != "0" ]; th
     fi
 
     if [ "$CLONE_EXTEND" = "0" ] || [ -z "$CLONE_EXTEND" ]; then
-        cat > "$RULES_FILE" << EOF
+        cat > "$RULES_TMP" << EOF || exit 1
 # Clone mode: all touchscreens -> $SOURCE_OUT
 SUBSYSTEM=="input", ENV{ID_INPUT_TOUCHSCREEN}=="1", ENV{WL_OUTPUT}="$SOURCE_OUT"
 EOF
@@ -144,7 +162,7 @@ EOF
         EXTEND_OUT=$(get_output_by_connector_id "$CLONE_EXTEND")
         [ -n "$EXTEND_OUT" ] || EXTEND_OUT=${HDMI_OUT:-HDMI-A-1}
 
-        cat > "$RULES_FILE" << EOF
+        cat > "$RULES_TMP" << EOF || exit 1
 # Clone+extend mode
 SUBSYSTEM=="input", ENV{ID_INPUT_TOUCHSCREEN}=="1", DEVPATH=="*/i2c*", ENV{WL_OUTPUT}="$SOURCE_OUT"
 SUBSYSTEM=="input", ENV{ID_INPUT_TOUCHSCREEN}=="1", DEVPATH=="*/usb*", ENV{WL_OUTPUT}="$EXTEND_OUT"
@@ -169,7 +187,7 @@ else
     fi
     HDMI_OUT=${HDMI_OUT:-HDMI-A-1}
 
-    cat > "$RULES_FILE" << EOF
+    cat > "$RULES_TMP" << EOF || exit 1
 # Extend mode: each LVDS touch follows its physical connector
 SUBSYSTEM=="input", ENV{ID_INPUT_TOUCHSCREEN}=="1", KERNELS=="44350000.i2c", ENV{WL_OUTPUT}="$LVDS0_OUT"
 SUBSYSTEM=="input", ENV{ID_INPUT_TOUCHSCREEN}=="1", KERNELS=="42530000.i2c", ENV{WL_OUTPUT}="$LVDS1_OUT"
@@ -180,7 +198,7 @@ EOF
 fi
 
 if [ -n "$DSI_OUT" ]; then
-    cat >> "$RULES_FILE" << EOF
+    cat >> "$RULES_TMP" << EOF || exit 1
 # MIPI panel: its I2C Goodix touchscreen follows the connected DSI output
 SUBSYSTEM=="input", ENV{ID_INPUT_TOUCHSCREEN}=="1", ATTRS{name}=="Goodix Capacitive TouchScreen", ENV{WL_OUTPUT}="$DSI_OUT"
 EOF
@@ -188,11 +206,44 @@ EOF
     echo "touch-clone: Goodix touchscreen -> $DSI_OUT"
 fi
 
-mv "$WESTON_TMP" "$WESTON_INI" || exit 1
+chmod 0644 "$RULES_TMP" "$WESTON_TMP" || exit 1
+
+# Keep the live files untouched until both replacements are complete. If the
+# Weston commit unexpectedly fails after the rules commit, restore the old
+# rules so the two generated files do not describe different mappings.
+if [ -e "$RULES_FILE" ]; then
+    RULES_BACKUP=$(mktemp "${RULES_FILE}.backup.XXXXXX") || exit 1
+    cp -p "$RULES_FILE" "$RULES_BACKUP" || exit 1
+fi
+
+mv "$RULES_TMP" "$RULES_FILE" || exit 1
+RULES_TMP=""
+
+if ! mv "$WESTON_TMP" "$WESTON_INI"; then
+    echo "touch-clone: cannot replace $WESTON_INI; restoring old rules" >&2
+    if [ -n "$RULES_BACKUP" ]; then
+        if ! mv "$RULES_BACKUP" "$RULES_FILE"; then
+            echo "touch-clone: failed to restore $RULES_FILE; backup retained at $RULES_BACKUP" >&2
+            RULES_BACKUP=""
+            exit 1
+        fi
+        RULES_BACKUP=""
+    else
+        rm -f "$RULES_FILE" || {
+            echo "touch-clone: failed to remove uncommitted $RULES_FILE" >&2
+            exit 1
+        }
+    fi
+    exit 1
+fi
 WESTON_TMP=""
+if [ -n "$RULES_BACKUP" ]; then
+    rm -f "$RULES_BACKUP" || exit 1
+    RULES_BACKUP=""
+fi
 trap - 0 1 2 15
 
 if [ -z "$SKIP_UDEV_RELOAD" ]; then
-    udevadm control --reload-rules
-    udevadm trigger --subsystem-match=input
+    udevadm control --reload-rules || exit 1
+    udevadm trigger --subsystem-match=input || exit 1
 fi
