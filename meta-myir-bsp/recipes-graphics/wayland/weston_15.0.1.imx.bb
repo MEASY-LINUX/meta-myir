@@ -16,6 +16,7 @@ LIC_FILES_CHKSUM = "file://COPYING;md5=d79ee9e66bb0f95d3386a7acae780b70 \
 SRC_URI = "https://gitlab.freedesktop.org/wayland/weston/-/releases/${PV}/downloads/${BPN}-${PV}.tar.xz \
            file://0001-vulkan-renderer-guard-surface-output-creation-with-b.patch \
            file://0001-gl-shaders-Remove-asserts-relying-on-shader-compiler.patch \
+           file://0001-desktop-shell-place-windows-on-latest-input-output.patch \
            file://weston.png \
            file://weston.desktop \
            file://xwayland.weston-start \

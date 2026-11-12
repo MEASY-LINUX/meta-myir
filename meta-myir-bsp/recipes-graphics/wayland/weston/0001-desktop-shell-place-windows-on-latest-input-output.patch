@@ -1,0 +1,64 @@
+From 2db54453e355c51e0242b56f467a2beed509c427 Mon Sep 17 00:00:00 2001
+From: MYIR Tech <support@myirtech.com>
+Date: Thu, 12 Nov 2026 16:00:00 +0800
+Subject: [PATCH] desktop-shell: place windows on latest input output
+
+The initial window placement heuristic only uses the pointer position. On a
+touch-only multi-output system, this leaves the position at (0, 0), causing
+applications launched from a secondary touchscreen to appear on the primary
+output.
+
+Use the position of the most recent pointer press or touch contact. This keeps
+the existing pointer behavior and makes window placement follow the output
+that the user most recently interacted with.
+
+Upstream-Status: Inappropriate [product-specific window placement policy]
+
+Signed-off-by: MYIR Tech <support@myirtech.com>
+---
+ desktop-shell/shell.c | 21 +++++++++++++++------
+ 1 file changed, 15 insertions(+), 6 deletions(-)
+
+diff --git a/desktop-shell/shell.c b/desktop-shell/shell.c
+index 13972aa5..f3ca0ae4 100644
+--- a/desktop-shell/shell.c
++++ b/desktop-shell/shell.c
+@@ -3951,21 +3951,30 @@ weston_view_set_initial_position(struct weston_view *view,
+ 	struct weston_output *output, *target_output = NULL;
+ 	struct shell_output *shoutput;
+ 	struct weston_seat *seat;
++	struct timespec latest_input_time = { 0 };
+ 	pixman_rectangle32_t area;
+ 	struct weston_coord_global pos;
+ 
+-	/* As a heuristic place the new window on the same output as the
+-	 * pointer. Falling back to the output containing 0, 0.
+-	 *
+-	 * TODO: Do something clever for touch too?
++	/* Place the new window on the output of the most recent pointer click
++	 * or touch. Falling back to the output containing 0, 0.
+ 	 */
+ 	pos.c = weston_coord(0, 0);
+ 	wl_list_for_each(seat, &compositor->seat_list, link) {
+ 		struct weston_pointer *pointer = weston_seat_get_pointer(seat);
++		struct weston_touch *touch = weston_seat_get_touch(seat);
+ 
+-		if (pointer) {
++		if (pointer &&
++		    timespec_sub_to_nsec(&pointer->grab_time,
++					 &latest_input_time) > 0) {
+ 			pos = pointer->pos;
+-			break;
++			latest_input_time = pointer->grab_time;
++		}
++
++		if (touch &&
++		    timespec_sub_to_nsec(&touch->grab_time,
++					 &latest_input_time) > 0) {
++			pos = touch->grab_pos;
++			latest_input_time = touch->grab_time;
+ 		}
+ 	}
+ 
+-- 
+2.43.0
