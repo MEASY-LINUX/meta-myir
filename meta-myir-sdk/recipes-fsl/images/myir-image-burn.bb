@@ -1,6 +1,6 @@
 SUMMARY = "MYD-JMX95 SD factory image for explicit eMMC provisioning"
 LICENSE = "MIT"
-COMPATIBLE_MACHINE = "(myd-jmx95x-b0)"
+COMPATIBLE_MACHINE = "(myir-jmx95)"
 
 inherit core-image
 

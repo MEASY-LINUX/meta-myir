@@ -1,7 +1,6 @@
 [Unit]
-Description=Explicitly authorized MYD-JMX95 factory eMMC provisioning
+Description=MYD-JMX95 automatic factory eMMC provisioning
 After=local-fs.target
-ConditionPathExists=/run/myir-factory-burn-authorized
 
 [Service]
 Type=oneshot

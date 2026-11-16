@@ -6,7 +6,8 @@ fail() { echo "ERROR: $*" >&2; exit 1; }
 
 # Pure geometry calculation: --plan never opens a device or changes a file.
 plan() {
-    local layout=$1 total=$2 bytes=$3
+    local layout=$1 total=$2 bytes=$3 mode=${4:-ext4}
+    local verity_slot=${5:-0} overlay_min=${6:-0} slot overlay
     [[ $total =~ ^[1-9][0-9]{0,6}$ ]] || fail "Invalid capacity in MiB"
     [[ $bytes =~ ^[1-9][0-9]{0,12}$ ]] || fail "Invalid rootfs size in bytes"
     (( total < 2097152 )) || fail "MBR layout requires a device below 2 TiB"
@@ -16,15 +17,40 @@ plan() {
         ab) boot=280; count=2 ;;
         *) fail "Layout must be single or ab" ;;
     esac
-    local slot=$(( (total - 10 - boot * count - 50) / count ))
+    case "$mode" in
+        ext4)
+            slot=$(( (total - 10 - boot * count - 50) / count ))
+            overlay=0
+            ;;
+        verity)
+            [[ $verity_slot =~ ^[1-9][0-9]{0,6}$ ]] || fail "Invalid verity rootfs slot size in MiB"
+            [[ $overlay_min =~ ^[1-9][0-9]{0,6}$ ]] || fail "Invalid minimum overlay size in MiB"
+            slot=$verity_slot
+            overlay=$((total - 10 - boot * count - slot * count - 50))
+            (( overlay >= overlay_min )) || fail "Device does not provide the minimum overlay space"
+            ;;
+        *) fail "Rootfs mode must be ext4 or verity" ;;
+    esac
     (( slot * 1048576 >= bytes + 64 * 1048576 )) || fail "Rootfs does not fit each slot with 64 MiB growth space"
-    echo 'label: dos'
+    local boot_type=c root_type=83 boot_flag=', bootable'
+    if [[ $layout == ab && $mode == verity ]]; then
+        # Five primary partitions require GPT; DOS/MBR can represent only four.
+        echo 'label: gpt'
+        boot_type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B
+        root_type=0FC63DAF-8483-4772-8E79-3D69D8477DE4
+        boot_flag=
+    else
+        echo 'label: dos'
+    fi
     echo 'unit: sectors'
-    echo "start=20480, size=$((boot * 2048)), type=c, bootable"
-    echo "start=$(((10 + boot) * 2048)), size=$((slot * 2048)), type=83"
+    echo "start=20480, size=$((boot * 2048)), type=$boot_type$boot_flag"
+    echo "start=$(((10 + boot) * 2048)), size=$((slot * 2048)), type=$root_type"
     if [[ $layout == ab ]]; then
-        echo "start=$(((10 + boot + slot) * 2048)), size=$((boot * 2048)), type=c"
-        echo "start=$(((10 + 2 * boot + slot) * 2048)), size=$((slot * 2048)), type=83"
+        echo "start=$(((10 + boot + slot) * 2048)), size=$((boot * 2048)), type=$boot_type"
+        echo "start=$(((10 + 2 * boot + slot) * 2048)), size=$((slot * 2048)), type=$root_type"
+    fi
+    if [[ $mode == verity ]]; then
+        echo "start=$(((10 + boot * count + slot * count) * 2048)), size=$((overlay * 2048)), type=$root_type"
     fi
 }
 
@@ -33,10 +59,16 @@ if [[ ${1:-} == --plan ]]; then
     plan "$2" "$3" "$4"
     exit 0
 fi
+if [[ ${1:-} == --plan-verity ]]; then
+    [[ $# == 6 ]] || fail "Usage: myir-burn-emmc --plan-verity single|ab EMMC_MIB ROOTFS_BYTES ROOTFS_SLOT_MIB OVERLAY_MIN_MIB"
+    plan "$2" "$3" "$4" verity "$5" "$6"
+    exit 0
+fi
 if [[ ${1:-} == --help ]]; then
     echo 'myir-burn-emmc [--check]'
     echo 'myir-burn-emmc --execute --confirm ERASE-MYD-JMX95-EMMC'
     echo 'myir-burn-emmc --plan single|ab EMMC_MIB ROOTFS_BYTES'
+    echo 'myir-burn-emmc --plan-verity single|ab EMMC_MIB ROOTFS_BYTES ROOTFS_SLOT_MIB OVERLAY_MIN_MIB'
     exit 0
 fi
 
@@ -49,7 +81,7 @@ esac
 
 [[ $EUID == 0 ]] || fail "Board checks require root"
 for cmd in blockdev findmnt lsblk flock sha256sum stat du sfdisk wipefs partx \
-           udevadm mkfs.vfat mount umount dd cmp e2fsck resize2fs tune2fs mmc; do
+           udevadm mkfs.vfat mkfs.ext4 mount umount dd cmp e2fsck resize2fs tune2fs mmc; do
     command -v "$cmd" >/dev/null || fail "Missing command: $cmd"
 done
 
@@ -58,60 +90,97 @@ if [[ $execute == yes ]]; then
     flock -n 9 || fail "Another burn is in progress"
 fi
 
-device=/dev/mmcblk0
 payload=@ROOT_HOME@/mfgimage
 layout=@LAYOUT@
+rootfs_mode=@ROOTFS_MODE@
+rootfs_file=$payload/rootfs-full.@ROOTFS_SUFFIX@
+boot_sentinel=@BOOT_SENTINEL@
+overlay_mib=@OVERLAY_MIB@
+verity_rootfs_mib=@VERITY_ROOTFS_MIB@
+populate_inactive=@POPULATE_INACTIVE@
+[[ $populate_inactive == 0 || $populate_inactive == 1 ]] || fail "Invalid inactive-slot policy"
 [[ -r /proc/device-tree/compatible ]] || fail "Missing board identity"
 tr '\0' '\n' < /proc/device-tree/compatible | grep -qx 'myir,myd-jmx95-15x15' || fail "Not a MYD-JMX95 board"
-[[ -b $device && $(</sys/class/block/mmcblk0/device/type) == MMC ]] || fail "mmcblk0 is not eMMC"
+root_source=$(findmnt -n -o SOURCE /)
+[[ -b $root_source ]] || fail "Factory root is not a block device: $root_source"
+root_node=${root_source##*/}
+root_disk=
+read -r root_disk < <(lsblk -nro PKNAME "$root_source")
+root_disk=${root_disk##*/}
+[[ -n $root_disk && -r /sys/class/block/$root_disk/device/type ]] || fail "Cannot identify factory boot media"
+[[ $(</sys/class/block/$root_disk/device/type) == SD ]] || fail "Factory image must be running from SD, found $root_disk"
+[[ $root_node == "${root_disk}p2" ]] || fail "Factory root must be partition 2 on $root_disk, found $root_node"
+
+emmc_nodes=()
+for sysdev in /sys/class/block/mmcblk[0-9]*; do
+    node=${sysdev##*/}
+    [[ $node =~ ^mmcblk[0-9]+$ ]] || continue
+    [[ -r $sysdev/device/type && $(<$sysdev/device/type) == MMC ]] || continue
+    emmc_nodes+=("$node")
+done
+(( ${#emmc_nodes[@]} == 1 )) || fail "Expected exactly one eMMC device, found ${#emmc_nodes[@]}"
+emmc_node=${emmc_nodes[0]}
+device=/dev/$emmc_node
+[[ -b $device ]] || fail "Missing eMMC block device: $device"
 [[ $(blockdev --getro "$device") == 0 ]] || fail "eMMC is read-only"
-root_id=$(findmnt -n -o MAJ:MIN /)
-root_node=$(basename "$(readlink -f "/sys/dev/block/$root_id")")
-[[ $root_node == mmcblk1p2 ]] || fail "Factory image must be running from SD mmcblk1p2, found $root_node"
 if lsblk -nr -o MOUNTPOINT "$device" | grep -q '[^[:space:]]'; then
     fail "An eMMC partition is mounted or used as swap"
 fi
-for node in /sys/class/block/mmcblk0 /sys/class/block/mmcblk0p* \
-            /sys/class/block/mmcblk0boot0 /sys/class/block/mmcblk0boot1; do
+for node in /sys/class/block/$emmc_node /sys/class/block/${emmc_node}p* \
+            /sys/class/block/${emmc_node}boot0 /sys/class/block/${emmc_node}boot1; do
     if compgen -G "$node/holders/*" >/dev/null; then
         fail "An eMMC device has active holders"
     fi
 done
 for index in 0 1; do
-    [[ -b /dev/mmcblk0boot$index && -w /sys/class/block/mmcblk0boot$index/force_ro ]] || fail "Missing eMMC boot partition $index"
-    if lsblk -nr -o MOUNTPOINT "/dev/mmcblk0boot$index" | grep -q '[^[:space:]]'; then
+    boot_device=${device}boot$index
+    boot_sysfs=/sys/class/block/${emmc_node}boot$index
+    [[ -b $boot_device && -w $boot_sysfs/force_ro ]] || fail "Missing eMMC boot partition $index"
+    if lsblk -nr -o MOUNTPOINT "$boot_device" | grep -q '[^[:space:]]'; then
         fail "eMMC boot partition $index is mounted or used as swap"
     fi
 done
-[[ -s $payload/imx-boot && -s $payload/rootfs-full.ext4 && -s $payload/kernel_dtb/Image ]] || fail "Incomplete factory payload"
+[[ -s $payload/imx-boot && -s $rootfs_file && -s $payload/kernel_dtb/$boot_sentinel ]] || fail "Incomplete factory payload"
 [[ -s $payload/kernel_dtb/myd-jmx95-15x15-lt9611-lvds1-ov5640.dtb ]] || fail "Missing default board DTB"
+echo 'Verifying factory payload...'
 (cd "$payload" && sha256sum --strict -c SHA256SUMS)
-rootfs_bytes=$(stat -c %s "$payload/rootfs-full.ext4")
+rootfs_bytes=$(stat -c %s "$rootfs_file")
 boot_bytes=$(stat -c %s "$payload/imx-boot")
 capacity=$(( $(blockdev --getsize64 "$device") / 1048576 ))
-table=$(plan "$layout" "$capacity" "$rootfs_bytes")
+table=$(plan "$layout" "$capacity" "$rootfs_bytes" "$rootfs_mode" "$verity_rootfs_mib" "$overlay_mib")
 for index in 0 1; do
-    (( boot_bytes <= $(blockdev --getsize64 /dev/mmcblk0boot$index) )) || fail "Bootloader exceeds boot partition capacity"
+    (( boot_bytes <= $(blockdev --getsize64 ${device}boot$index) )) || fail "Bootloader exceeds boot partition capacity"
 done
 boot_mib=200
 [[ $layout != ab ]] || boot_mib=280
 boot_files_bytes=$(du -sb "$payload/kernel_dtb")
 boot_files_bytes=${boot_files_bytes%%[[:space:]]*}
 (( boot_files_bytes < (boot_mib - 16) * 1048576 )) || fail "Boot files exceed FAT partition capacity"
-echo "Target: $device; layout: $layout; capacity: $capacity MiB"
+echo "Target: $device; layout: $layout; rootfs: $rootfs_mode; capacity: $capacity MiB; populate inactive: $populate_inactive"
 echo "$table"
 [[ $execute == yes ]] || { echo 'Checks passed. No device was modified.'; exit 0; }
 
 mountpoint=$(mktemp -d /run/myir-burn.XXXXXX)
 mounted=no
+progress_pid=
+progress() {
+    while true; do
+        echo 'Updating eMMC...'
+        sleep 2
+    done
+}
 cleanup() {
     local result=$?
     trap - EXIT
+    if [[ -n $progress_pid ]]; then
+        kill "$progress_pid" 2>/dev/null || true
+        wait "$progress_pid" 2>/dev/null || true
+    fi
     if [[ $mounted == yes ]]; then
         umount "$mountpoint" || result=1
     fi
     for index in 0 1; do
-        echo 1 > /sys/class/block/mmcblk0boot$index/force_ro || result=1
+        echo 1 > /sys/class/block/${emmc_node}boot$index/force_ro || result=1
     done
     rmdir "$mountpoint" || result=1
     (( result == 0 )) || echo 'Burn failed; do not boot from eMMC.' >&2
@@ -120,9 +189,11 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
+progress &
+progress_pid=$!
 
 # All destructive operations are below the identity, payload and capacity checks.
-if lsblk -nr -o MOUNTPOINT "$device" /dev/mmcblk0boot0 /dev/mmcblk0boot1 | grep -q '[^[:space:]]'; then
+if lsblk -nr -o MOUNTPOINT "$device" ${device}boot0 ${device}boot1 | grep -q '[^[:space:]]'; then
     fail "eMMC became mounted during verification"
 fi
 echo 'Erasing eMMC user-area partition metadata and old U-Boot environment.'
@@ -133,6 +204,7 @@ partx -u "$device"
 udevadm settle
 last=2
 [[ $layout != ab ]] || last=4
+[[ $rootfs_mode != verity ]] || last=$((last + 1))
 for ((attempt=0; attempt<20; attempt++)); do
     [[ -b ${device}p${last} ]] && break
     sleep 1
@@ -141,11 +213,23 @@ done
 
 boots=(1)
 roots=(2)
-[[ $layout != ab ]] || { boots+=(3); roots+=(4); }
+if [[ $layout == ab ]]; then
+    boots+=(3)
+    if [[ $populate_inactive == 1 ]]; then
+        roots+=(4)
+    else
+        # Remove stale filesystem signatures without writing the large payload.
+        wipefs --all --force "${device}p4"
+    fi
+fi
 for index in "${boots[@]}"; do
     label=BOOT_A
     [[ $index == 1 ]] || label=BOOT_B
     mkfs.vfat -n "$label" "${device}p$index"
+    if [[ $index == 3 && $populate_inactive == 0 ]]; then
+        echo 'BOOT_B formatted but left empty for the first OTA update.'
+        continue
+    fi
     mount -t vfat "${device}p$index" "$mountpoint"
     mounted=yes
     cp -r "$payload/kernel_dtb/." "$mountpoint/"
@@ -157,26 +241,41 @@ for index in "${boots[@]}"; do
     mounted=no
 done
 
+if [[ $layout == ab && $populate_inactive == 0 ]]; then
+    echo 'ROOTFS_B left empty for the first OTA update.'
+fi
+
 for index in "${roots[@]}"; do
     partition=${device}p$index
     (( $(blockdev --getsize64 "$partition") >= rootfs_bytes )) || fail "Rootfs partition too small"
-    dd if="$payload/rootfs-full.ext4" of="$partition" bs=4M conv=fsync
-    cmp -n "$rootfs_bytes" "$payload/rootfs-full.ext4" "$partition"
-    if e2fsck -pf "$partition"; then :; else
-        result=$?
-        [[ $result == 1 ]] || fail "Filesystem check failed with $result"
+    dd if="$rootfs_file" of="$partition" bs=4M conv=fsync
+    cmp -n "$rootfs_bytes" "$rootfs_file" "$partition"
+    # dm-verity authenticates the exact ext4 image and appended hash tree.
+    # Resizing that payload would invalidate verification; only writable ext4
+    # factory targets may grow to fill their partition.
+    if [[ $rootfs_mode == ext4 ]]; then
+        if e2fsck -pf "$partition"; then :; else
+            result=$?
+            [[ $result == 1 ]] || fail "Filesystem check failed with $result"
+        fi
+        resize2fs "$partition"
+        label=ROOTFS_A
+        [[ $index == 2 ]] || label=ROOTFS_B
+        tune2fs -U random -L "$label" "$partition"
     fi
-    resize2fs "$partition"
-    label=ROOTFS_A
-    [[ $index == 2 ]] || label=ROOTFS_B
-    tune2fs -U random -L "$label" "$partition"
 done
 
+if [[ $rootfs_mode == verity ]]; then
+    overlay_index=3
+    [[ $layout != ab ]] || overlay_index=5
+    mkfs.ext4 -F -L overlay "${device}p${overlay_index}"
+fi
+
 for index in 0 1; do
-    echo 0 > /sys/class/block/mmcblk0boot$index/force_ro
-    dd if="$payload/imx-boot" of="/dev/mmcblk0boot$index" bs=1M conv=fsync
-    cmp -n "$boot_bytes" "$payload/imx-boot" "/dev/mmcblk0boot$index"
-    echo 1 > /sys/class/block/mmcblk0boot$index/force_ro
+    echo 0 > /sys/class/block/${emmc_node}boot$index/force_ro
+    dd if="$payload/imx-boot" of="${device}boot$index" bs=1M conv=fsync
+    cmp -n "$boot_bytes" "$payload/imx-boot" "${device}boot$index"
+    echo 1 > /sys/class/block/${emmc_node}boot$index/force_ro
 done
 sync
 # Change the eMMC boot selection only after all payload verification succeeds.

@@ -1,20 +1,28 @@
-# MYD-JMX95X B0 security image configuration for the wrynose/6.18 SDK.
+# MYD-JMX95X security image configuration for the wrynose/6.18 SDK.
 # Reuse the provisioned signing keys in ${TOPDIR}/keys. Key generation and
 # replacement are intentionally outside the image build.
+# Recipes select common JMX95 behavior through this internal family override,
+# independently of whether a machine is named myd-jmx95, myd-jmx95x-b0, etc.
+MACHINEOVERRIDES =. "myir-jmx95:"
+
 MYIR_SECURITY_KEY_DIR ?= "${TOPDIR}/keys"
 
 ENABLE_DM_VERITY ?= "0"
-ENABLE_OVERLAYFS ?= "0"
-ENABLE_ROOTHASH_SIGN ?= "0"
-MYIR_FITIMAGE_BOOT ?= "${ENABLE_DM_VERITY}"
-ENABLE_FITIMAGE_SIGN ?= "${MYIR_FITIMAGE_BOOT}"
+# The JMX95 dm-verity profile is a complete security mode: writable overlay,
+# signed root hash and signed FIT are mandatory and cannot drift independently.
+ENABLE_OVERLAYFS = "${ENABLE_DM_VERITY}"
+ENABLE_ROOTHASH_SIGN = "${ENABLE_DM_VERITY}"
+MYIR_FITIMAGE_BOOT = "${ENABLE_DM_VERITY}"
+ENABLE_FITIMAGE_SIGN = "${ENABLE_DM_VERITY}"
 
 # Basic AHAB mode remains compatible with the 6.12 DISTRO_FEATURES switch.
 # MYIR_SECURE_BOOT is an equivalent explicit switch for new build configs.
 MYIR_SECURE_BOOT ?= "0"
 DISTRO_FEATURES:append = "${@' sec_boot' if d.getVar('MYIR_SECURE_BOOT') == '1' or d.getVar('ENABLE_DM_VERITY') == '1' else ''}"
 MYIR_AHAB_ENABLE = "${@'1' if d.getVar('MYIR_SECURE_BOOT') == '1' or d.getVar('ENABLE_DM_VERITY') == '1' or bb.utils.contains('DISTRO_FEATURES', 'sec_boot', True, False, d) else '0'}"
-DUAL_ROOTFS = "${@bb.utils.contains('MYIR_AHAB_ENABLE', '1', 'dual', '', d)}"
+# A/B is an OTA property, not a secure-boot property.  AHAB and dm-verity
+# images remain single-slot unless the external OTA layer explicitly opts in.
+DUAL_ROOTFS = "${@'dual' if d.getVar('OTA_SUPPORT') == '1' else ''}"
 SIGNED_BOOT = "${@bb.utils.contains('MYIR_AHAB_ENABLE', '1', 'signed', '', d)}"
 
 # i.MX95 AHAB uses ECC secp384r1 and SHA-384.
