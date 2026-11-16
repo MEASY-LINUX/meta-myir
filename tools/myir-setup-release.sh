@@ -39,8 +39,9 @@ usage()
     echo "  -b BUILD_DIR    Specify build directory (default: 'build')"
     echo "  -h              Display this help message"
     echo ""
-    echo "Supported machine:"
-    echo "  myd-jmx95x-b0"
+    echo "Machine selection:"
+    echo "  default: myd-jmx95x-b0"
+    echo "  any machine with a matching meta-myir-bsp/conf/machine/*.conf"
     echo ""
     echo "Supported NXP's i.MX distros:"
     ls sources/meta-myir/meta-myir-sdk/conf/distro/fsl-*.conf 2>/dev/null \
@@ -56,8 +57,9 @@ clean_up()
 
     unset CWD BUILD_DIR FSLDISTRO
     unset fsl_setup_help fsl_setup_error fsl_setup_flag
-    unset usage clean_up
+    unset usage clean_up append_optional_layer
     unset ARM_DIR META_FSL_BSP_RELEASE
+    unset optional_layer SECURITY_KEYS_SOURCE
     exit_message clean_up
 }
 
@@ -107,8 +109,8 @@ if [ -z "$MACHINE" ]; then
     MACHINE='myd-jmx95x-b0'
 fi
 
-if [ "$MACHINE" != "myd-jmx95x-b0" ]; then
-    echo "ERROR: This project supports only MACHINE=myd-jmx95x-b0."
+if [ ! -f "$CWD/sources/meta-myir/meta-myir-bsp/conf/machine/$MACHINE.conf" ]; then
+    echo "ERROR: Machine configuration not found for MACHINE=$MACHINE."
     return 1
 fi
 
@@ -155,6 +157,23 @@ echo >> conf/local.conf
 echo "# Switch to Debian packaging and include package-management in the image" >> conf/local.conf
 echo "PACKAGE_CLASSES = \"package_deb\"" >> conf/local.conf
 echo "EXTRA_IMAGE_FEATURES += \"package-management\"" >> conf/local.conf
+echo >> conf/local.conf
+echo "# Optional product features. Set only the required features to 1." >> conf/local.conf
+echo "MEASY_RT_ENABLE = \"0\"" >> conf/local.conf
+echo "MYIR_SECURE_BOOT = \"0\"" >> conf/local.conf
+echo "ENABLE_DM_VERITY = \"0\"" >> conf/local.conf
+echo "OTA_SUPPORT = \"0\"" >> conf/local.conf
+echo "# Isolate the writable factory SD only for dm-verity product builds." >> conf/local.conf
+echo "BBMULTICONFIG := \"\${@'target factory' if d.getVar('ENABLE_DM_VERITY') == '1' else ''}\"" >> conf/local.conf
+
+# BitBake requires multiconfig entry files in the build directory.  Keep only
+# these entry points here; the maintained policies live in meta-measy-security
+# and inherit the MACHINE selected above (B0, B1, or a later JMX95 revision).
+mkdir -p conf/multiconfig
+echo '# MACHINE is inherited from the top-level build configuration.' > conf/multiconfig/target.conf
+echo 'require ${BSPDIR}/sources/meta-measy-linux/meta-measy-security/conf/multiconfig/myd-jmx95-dmverity-target.conf' >> conf/multiconfig/target.conf
+echo '# MACHINE is inherited from the top-level build configuration.' > conf/multiconfig/factory.conf
+echo 'require ${BSPDIR}/sources/meta-measy-linux/meta-measy-security/conf/multiconfig/myd-jmx95-dmverity-factory.conf' >> conf/multiconfig/factory.conf
 
 if [ ! -e $BUILD_DIR/conf/bblayers.conf.org ]; then
     cp $BUILD_DIR/conf/bblayers.conf $BUILD_DIR/conf/bblayers.conf.org
@@ -168,7 +187,6 @@ META_FSL_BSP_RELEASE="${CWD}/sources/meta-myir/meta-myir-bsp"
 echo "" >> $BUILD_DIR/conf/bblayers.conf
 echo "# i.MX Yocto Project Release layers" >> $BUILD_DIR/conf/bblayers.conf
 hook_in_layer meta-myir/meta-myir-bsp
-hook_in_layer meta-myir/meta-myir-security
 hook_in_layer meta-myir/meta-myir-sdk
 hook_in_layer meta-myir/meta-myir-ml
 hook_in_layer meta-myir/meta-myir-v2x
@@ -191,6 +209,32 @@ echo "BBLAYERS += \"\${BSPDIR}/sources/meta-security\"" >> $BUILD_DIR/conf/bblay
 echo "BBLAYERS += \"\${BSPDIR}/sources/meta-virtualization\"" >> $BUILD_DIR/conf/bblayers.conf
 echo "BBLAYERS += \"\${BSPDIR}/sources/meta-freescale-ml\"" >> $BUILD_DIR/conf/bblayers.conf
 echo "BBLAYERS += \"\${BSPDIR}/sources/meta-swupdate\"" >> $BUILD_DIR/conf/bblayers.conf
+
+append_optional_layer()
+{
+    optional_layer="$1"
+    if [ -f "${CWD}/sources/${optional_layer}/conf/layer.conf" ]; then
+        printf '\n## Optional layer: %s\n' "${optional_layer}" >> "$BUILD_DIR/conf/bblayers.conf"
+        printf 'BBLAYERS += "${BSPDIR}/sources/%s"\n' "${optional_layer}" >> "$BUILD_DIR/conf/bblayers.conf"
+    fi
+}
+
+append_optional_layer meta-measy-linux/meta-measy-support
+append_optional_layer meta-measy-linux/meta-measy-security
+append_optional_layer meta-measy-linux/meta-measy-swupdate
+
+# Keep TOPDIR/keys stable while allowing production keys to live outside Git.
+SECURITY_KEYS_SOURCE="${MEASY_SECURITY_KEYS_DIR:-${CWD}/sources/meta-measy-linux/meta-measy-security/files/keys}"
+if [ -d "${SECURITY_KEYS_SOURCE}" ]; then
+    if [ -L "$BUILD_DIR/keys" ] || [ ! -e "$BUILD_DIR/keys" ]; then
+        ln -sfn "${SECURITY_KEYS_SOURCE}" "$BUILD_DIR/keys"
+        echo "Secure boot keys: $BUILD_DIR/keys -> ${SECURITY_KEYS_SOURCE}"
+    else
+        echo "WARNING: $BUILD_DIR/keys exists and is not a symlink; leaving it unchanged."
+    fi
+else
+    echo "WARNING: Secure boot keys not found at ${SECURITY_KEYS_SOURCE}"
+fi
 
 # NXP development board images are more useful with the empty root password.
 echo -e "\n====================================== Important Note =========================================="
