@@ -15,3 +15,10 @@ DEPENDS:append = " systemd gpgme"
 python () {
     bb.parse.mark_dependency(d, bb.fetch2.localpath('file://defconfig', d))
 }
+
+do_install:append() {
+    install -d ${D}${sysconfdir}
+    install -m 0644 ${UNPACKDIR}/swupdate.cfg ${D}${sysconfdir}/swupdate.cfg
+}
+
+FILES:${PN} += "${sysconfdir}/swupdate.cfg"
