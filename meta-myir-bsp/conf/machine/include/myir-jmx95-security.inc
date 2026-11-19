@@ -20,6 +20,12 @@ ENABLE_FITIMAGE_SIGN = "${ENABLE_DM_VERITY}"
 MYIR_SECURE_BOOT ?= "0"
 DISTRO_FEATURES:append = "${@' sec_boot' if d.getVar('MYIR_SECURE_BOOT') == '1' or d.getVar('ENABLE_DM_VERITY') == '1' else ''}"
 MYIR_AHAB_ENABLE = "${@'1' if d.getVar('MYIR_SECURE_BOOT') == '1' or d.getVar('ENABLE_DM_VERITY') == '1' or bb.utils.contains('DISTRO_FEATURES', 'sec_boot', True, False, d) else '0'}"
+
+MYIR_ROOT_PASSWORD_HASH_FILE ?= "${MEASY_SECURITY_LAYERDIR}/files/keys/myir-jmx95-root-password.hash"
+MYIR_SECURE_LOGIN_CLASS = "${@' myir-secure-login' if d.getVar('MYIR_AHAB_ENABLE') == '1' else ''}"
+IMAGE_CLASSES:append:pn-myir-image-emmc = "${MYIR_SECURE_LOGIN_CLASS}"
+IMAGE_CLASSES:append:pn-myir-image-burn = "${MYIR_SECURE_LOGIN_CLASS}"
+
 # A/B is an OTA property, not a secure-boot property.  AHAB and dm-verity
 # images remain single-slot unless the external OTA layer explicitly opts in.
 DUAL_ROOTFS = "${@'dual' if d.getVar('OTA_SUPPORT') == '1' else ''}"
