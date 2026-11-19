@@ -60,6 +60,23 @@ IMAGE_INSTALL_PARSEC = " \
 
 IMAGE_INSTALL_PKCS11 = "opensc pkcs11-provider"
 
+MYIR_ARA2_IMAGE_PACKAGES = " \
+    imx-nxp-ara2 \
+    yaml-cpp \
+    libwebsockets \
+    libnice \
+    neutron \
+    tensorflow-lite-neutron-delegate \
+"
+
+MYIR_ARA2_SDK_PACKAGES = " \
+    yaml-cpp-dev \
+    libwebsockets-dev \
+"
+
+IMAGE_INSTALL:append = " ${@bb.utils.contains('MYIR_ARA2_ENABLE', '1', d.getVar('MYIR_ARA2_IMAGE_PACKAGES'), '', d)}"
+TOOLCHAIN_TARGET_TASK:append = " ${@bb.utils.contains('MYIR_ARA2_ENABLE', '1', d.getVar('MYIR_ARA2_SDK_PACKAGES'), '', d)}"
+
 IMAGE_INSTALL:append = " \
     packagegroup-qt6-imx \
     qtvirtualkeyboard \
