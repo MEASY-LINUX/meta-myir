@@ -84,6 +84,7 @@ IMAGE_INSTALL:append = " \
     ${IMAGE_INSTALL_OPENCV} \
     ${IMAGE_INSTALL_PARSEC} \
     ${IMAGE_INSTALL_PKCS11} \
+    ${@bb.utils.contains('DISTRO_FEATURES', 'apparmor', 'apparmor', '', d)} \
 "
 
 export IMAGE_BASENAME = "myir-image-emmc"
