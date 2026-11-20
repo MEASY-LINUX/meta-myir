@@ -18,10 +18,10 @@ LIC_FILES_CHKSUM = "file://COPYING;md5=6bc538ed5bd9a7fc9398086aedcd7e46"
 DEPENDS += "coreutils-native"
 
 SRC_URI = "${LINUX_IMX_SRC}"
-LINUX_IMX_SRC ?= "git:///home/myir/bsp/6.18/myir-imx-linux;protocol=file;branch=${SRCBRANCH}"
-SRCBRANCH = "lf-6.18.y"
+LINUX_IMX_SRC ?= "git://github.com/MEASY-LINUX/myir-imx-linux.git;protocol=https;branch=${SRCBRANCH}"
+SRCBRANCH = "develop_lf-6.18.y"
 KBRANCH = "${SRCBRANCH}"
-SRCREV = "a9afd2adefdc1dd03ddd1163ba3d06a9cecce20e"
+SRCREV = "2cdba9f168da3f054f242375e914d3fbefb47406"
 BB_GIT_SHALLOW = "1"
 BB_GIT_SHALLOW_DEPTH = "1"
 

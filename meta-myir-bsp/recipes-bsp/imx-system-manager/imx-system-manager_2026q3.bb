@@ -12,9 +12,9 @@ LICENSE = "BSD-3-Clause"
 LIC_FILES_CHKSUM = "file://LICENSE.txt;md5=f2a70813bc08547f509361c08b718861"
 
 SRC_URI = "${IMX_SYSTEM_MANAGER_SRC};branch=${SRCBRANCH}"
-IMX_SYSTEM_MANAGER_SRC ?= "git:///home/myir/bsp/6.18/imx-system-manager;protocol=file"
+IMX_SYSTEM_MANAGER_SRC ?= "git://github.com/MEASY-LINUX/imx-system-manager.git;protocol=https"
 SRCBRANCH = "develop_sm"
-SRCREV = "7ca42a23d7e89c47d5624a45c89efe8405256007"
+SRCREV = "6232f06e2d5b06bf95beec62e83be1341f7c8ebe"
 BB_GIT_SHALLOW = "1"
 BB_GIT_SHALLOW_DEPTH = "1"
 

@@ -9,10 +9,10 @@ LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/GPL-2.0-only;md5=801f80980d171d
 
 SRC_URI = "${LINUX_IMX_SRC};subpath=drivers/mxc/gpu-viv;destsuffix=${BB_GIT_DEFAULT_DESTSUFFIX}/src \
            file://Add-makefile.patch"
-LINUX_IMX_SRC ?= "git:///home/myir/bsp/6.18/myir-imx-linux;protocol=file;branch=${SRCBRANCH}"
-SRCBRANCH = "lf-6.18.y"
+LINUX_IMX_SRC ?= "git://github.com/MEASY-LINUX/myir-imx-linux.git;protocol=https;branch=${SRCBRANCH}"
+SRCBRANCH = "develop_lf-6.18.y"
 LOCALVERSION = "-lts-next"
-SRCREV = "a9afd2adefdc1dd03ddd1163ba3d06a9cecce20e"
+SRCREV = "2cdba9f168da3f054f242375e914d3fbefb47406"
 BB_GIT_SHALLOW = "1"
 BB_GIT_SHALLOW_DEPTH = "1"
 

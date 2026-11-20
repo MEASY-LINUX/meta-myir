@@ -8,7 +8,7 @@ LIC_FILES_CHKSUM = "file://${COREBASE}/meta/files/common-licenses/BSD-3-Clause;m
 PV .= "+git${SRCPV}"
 
 SRC_URI = "${ATF_SRC};branch=${SRCBRANCH}"
-ATF_SRC ?= "git:///home/myir/bsp/6.18/myir-imx-atf;protocol=file"
+ATF_SRC ?= "git://github.com/MEASY-LINUX/myir-imx-atf.git;protocol=https"
 SRCBRANCH = "lf_v2.14"
 SRCREV = "af9eb2c1748ee3abc0ead7dc76e462f50c573036"
 BB_GIT_SHALLOW = "1"

@@ -5,10 +5,10 @@ LIC_FILES_CHKSUM = "file://Licenses/gpl-2.0.txt;md5=b234ee4d69f5fce4486a80fdaf4a
 
 SRC_URI = "${UBOOT_SRC};branch=${SRCBRANCH}"
 
-UBOOT_SRC ?= "git:///home/myir/bsp/6.18/u-boot-imx;protocol=file"
+UBOOT_SRC ?= "git://github.com/MEASY-LINUX/myir-imx-uboot.git;protocol=https"
 SRCBRANCH = "lf_v2026.04"
 LOCALVERSION ?= "-${SRCBRANCH}"
-SRCREV = "a1fdcaf045110146197b7936807815dfd114cbe0"
+SRCREV = "b72a3ce649eac313f1e89a7de7bcbeed34beacc0"
 BB_GIT_SHALLOW = "1"
 BB_GIT_SHALLOW_DEPTH = "1"
 
