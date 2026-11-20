@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 
-IMAGE_FEATURES:remove = "allow-empty-password empty-root-password allow-root-login serial-autologin-root"
+IMAGE_FEATURES:remove = "allow-empty-password empty-root-password serial-autologin-root"
 
 do_rootfs[depends] += "shadow-native:do_populate_sysroot"
 do_rootfs[file-checksums] += "${MYIR_ROOT_PASSWORD_HASH_FILE}:True"
