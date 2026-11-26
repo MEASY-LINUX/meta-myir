@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: CC0-1.0
+%YAML 1.1
+---
+version: 1
+algorithms:
+  - Agc:
+  - Awb:
+  - BlackLevelCorrection:
+      # Measured black level is 64 in RAW10, expressed here in 16-bit units.
+      R: 4096
+      Gr: 4096
+      Gb: 4096
+      B: 4096
+  - Ccm:
+      ccms:
+        - ct: 5000
+          ccm: [1.2804, -0.2348, -0.0456,
+                -0.1196, 1.1652, -0.0456,
+                -0.1196, -0.2348, 1.3544]
+          offsets: [0, 0, 0]
+  - GammaOutCorrection:
+      gamma: 2.22
+...

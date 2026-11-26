@@ -1,0 +1,49 @@
+Subject: [PATCH] ipa: nxp: support the OV13855 analogue gain control
+
+Register the sensor with the Neo IPA so the pipeline can initialize
+with its fallback tuning during RAW10 bring-up.
+
+Upstream-Status: Pending
+
+diff --git a/src/ipa/nxp/cam_helper/camera_helper_ov13855.cpp b/src/ipa/nxp/cam_helper/camera_helper_ov13855.cpp
+new file mode 100644
+--- /dev/null
++++ b/src/ipa/nxp/cam_helper/camera_helper_ov13855.cpp
+@@ -0,0 +1,26 @@
++/* SPDX-License-Identifier: LGPL-2.1-or-later */
++
++#include <algorithm>
++#include <cmath>
++
++#include "camera_helper.h"
++
++namespace libcamera::nxp {
++
++class CameraHelperOv13855 : public CameraHelper
++{
++public:
++	uint32_t gainCode(double gain) const override
++	{
++		return std::lround(std::clamp(gain, 1.0, 15.5) * 128);
++	}
++
++	double gain(uint32_t gainCode) const override
++	{
++		return gainCode / 128.0;
++	}
++};
++
++REGISTER_CAMERA_HELPER("ov13855", CameraHelperOv13855)
++
++} /* namespace libcamera::nxp */
+diff --git a/src/ipa/nxp/cam_helper/meson.build b/src/ipa/nxp/cam_helper/meson.build
+--- a/src/ipa/nxp/cam_helper/meson.build
++++ b/src/ipa/nxp/cam_helper/meson.build
+@@ -11,6 +11,7 @@ nxp_ipa_cam_helper_sources = files([
+     'camera_helper_imx708.cpp',
+     'camera_helper_mx95mbcam.cpp',
+     'camera_helper_os08a20.cpp',
++    'camera_helper_ov13855.cpp',
+     'camera_helper_ox05b1s.cpp',
+     'camera_helper_vivid.cpp',
+     'md_parser_ox.cpp',

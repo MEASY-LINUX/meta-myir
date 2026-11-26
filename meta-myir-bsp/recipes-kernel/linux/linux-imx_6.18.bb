@@ -21,7 +21,7 @@ SRC_URI = "${LINUX_IMX_SRC}"
 LINUX_IMX_SRC ?= "git://github.com/MEASY-LINUX/myir-imx-linux.git;protocol=https;branch=${SRCBRANCH}"
 SRCBRANCH = "develop_lf-6.18.y"
 KBRANCH = "${SRCBRANCH}"
-SRCREV = "2cdba9f168da3f054f242375e914d3fbefb47406"
+SRCREV = "be70582edff52c04306d5239748cab93577e65be"
 BB_GIT_SHALLOW = "1"
 BB_GIT_SHALLOW_DEPTH = "1"
 

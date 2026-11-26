@@ -117,6 +117,25 @@ LIBCAMERA_SRC ?= "git://github.com/nxp-imx/libcamera.git;protocol=https"
 SRCBRANCH = "lf-6.18.37_2.1.0"
 SRCREV = "84d2508ac0ef25c2d9554d13ad2503e6cc480ec4"
 
+SRC_URI:append:myd-jmx95x-b0 = " \
+    file://0001-ipa-nxp-add-ov13855-camera-helper.patch \
+    file://ov13855.yaml \
+    file://ov13855-preview \
+"
+
+PACKAGE_ARCH:myd-jmx95x-b0 = "${MACHINE_ARCH}"
+FILES:${PN}-gst:append:myd-jmx95x-b0 = " ${bindir}/ov13855-preview"
+RDEPENDS:${PN}-gst:append:myd-jmx95x-b0 = " \
+    gstreamer1.0 \
+    gstreamer1.0-plugins-bad-debugutilsbad \
+    gstreamer1.0-plugins-bad-waylandsink \
+"
+
+do_install:append:myd-jmx95x-b0() {
+    install -D -m 0644 ${UNPACKDIR}/ov13855.yaml ${D}${datadir}/libcamera/ipa/nxp/neo/ov13855.yaml
+    install -D -m 0755 ${UNPACKDIR}/ov13855-preview ${D}${bindir}/ov13855-preview
+}
+
 PACKAGECONFIG = "dng gst kms python"
 
 ARM_PIPELINES .= ",nxp/neo"
