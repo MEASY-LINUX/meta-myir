@@ -21,7 +21,7 @@
 
 . sources/meta-myir/tools/setup-utils.sh
 
-CWD=`pwd`
+MYIR_SETUP_ROOT=$PWD
 PROGNAME="setup-environment"
 exit_message ()
 {
@@ -52,15 +52,15 @@ usage()
     echo ""
 }
 
-clean_up()
+myir_setup_cleanup()
 {
 
-    unset CWD BUILD_DIR FSLDISTRO
+    unset MYIR_SETUP_ROOT BUILD_DIR FSLDISTRO
     unset fsl_setup_help fsl_setup_error fsl_setup_flag
-    unset usage clean_up append_optional_layer
-    unset ARM_DIR META_FSL_BSP_RELEASE
+    unset usage append_optional_layer
+    unset ARM_DIR
     unset optional_layer SECURITY_KEYS_SOURCE
-    exit_message clean_up
+    exit_message
 }
 
 # get command line options
@@ -86,9 +86,9 @@ if [ $# -ne 0 ]; then
 fi
 OPTIND=$OLD_OPTIND
 if test $fsl_setup_help; then
-    usage && clean_up && return 1
+    usage && myir_setup_cleanup && return 1
 elif test $fsl_setup_error; then
-    clean_up && return 1
+    myir_setup_cleanup && return 1
 fi
 
 
@@ -109,7 +109,7 @@ if [ -z "$MACHINE" ]; then
     MACHINE='myd-jmx95x-b0'
 fi
 
-if [ ! -f "$CWD/sources/meta-myir/meta-myir-bsp/conf/machine/$MACHINE.conf" ]; then
+if [ ! -f "$MYIR_SETUP_ROOT/sources/meta-myir/meta-myir-bsp/conf/machine/$MACHINE.conf" ]; then
     echo "ERROR: Machine configuration not found for MACHINE=$MACHINE."
     return 1
 fi
@@ -124,17 +124,17 @@ case $FSLDISTRO in
     ;;
 esac
 
-if [ ! -f "$CWD/sources/meta-swupdate/conf/layer.conf" ]; then
+if [ ! -f "$MYIR_SETUP_ROOT/sources/meta-swupdate/conf/layer.conf" ]; then
     echo "ERROR: Missing sources/meta-swupdate (wrynose)."
     echo "See sources/meta-myir/docs/myd-jmx95x-update-port.md."
     return 1
 fi
 
 # Override the click-through in meta-freescale
-FSL_EULA_FILE=$CWD/sources/meta-myir/LICENSE.txt
+FSL_EULA_FILE=$MYIR_SETUP_ROOT/sources/meta-myir/LICENSE.txt
 
 # Set up the basic yocto environment
-DISTRO=$FSLDISTRO MACHINE=$MACHINE . ./$PROGNAME $BUILD_DIR
+DISTRO=$FSLDISTRO MACHINE=$MACHINE . "./$PROGNAME" "$BUILD_DIR" || return 1
 
 # Point to the current directory since the last command changed the directory to $BUILD_DIR
 BUILD_DIR=.
@@ -182,8 +182,6 @@ else
 fi
 
 
-META_FSL_BSP_RELEASE="${CWD}/sources/meta-myir/meta-myir-bsp"
-
 echo "" >> $BUILD_DIR/conf/bblayers.conf
 echo "# i.MX Yocto Project Release layers" >> $BUILD_DIR/conf/bblayers.conf
 hook_in_layer meta-myir/meta-myir-bsp
@@ -213,7 +211,7 @@ echo "BBLAYERS += \"\${BSPDIR}/sources/meta-swupdate\"" >> $BUILD_DIR/conf/bblay
 append_optional_layer()
 {
     optional_layer="$1"
-    if [ -f "${CWD}/sources/${optional_layer}/conf/layer.conf" ]; then
+    if [ -f "${MYIR_SETUP_ROOT}/sources/${optional_layer}/conf/layer.conf" ]; then
         printf '\n## Optional layer: %s\n' "${optional_layer}" >> "$BUILD_DIR/conf/bblayers.conf"
         printf 'BBLAYERS += "${BSPDIR}/sources/%s"\n' "${optional_layer}" >> "$BUILD_DIR/conf/bblayers.conf"
     fi
@@ -221,10 +219,10 @@ append_optional_layer()
 
 append_optional_layer meta-measy-linux/meta-measy-support
 append_optional_layer meta-measy-linux/meta-measy-security
-append_optional_layer meta-measy-linux/meta-measy-swupdate
+append_optional_layer meta-measy-linux/meta-measy-ota
 
 # Keep TOPDIR/keys stable while allowing production keys to live outside Git.
-SECURITY_KEYS_SOURCE="${MEASY_SECURITY_KEYS_DIR:-${CWD}/sources/meta-measy-linux/meta-measy-security/files/keys}"
+SECURITY_KEYS_SOURCE="${MEASY_SECURITY_KEYS_DIR:-${MYIR_SETUP_ROOT}/sources/meta-measy-linux/meta-measy-security/files/keys}"
 if [ -d "${SECURITY_KEYS_SOURCE}" ]; then
     if [ -L "$BUILD_DIR/keys" ] || [ ! -e "$BUILD_DIR/keys" ]; then
         ln -sfn "${SECURITY_KEYS_SOURCE}" "$BUILD_DIR/keys"
@@ -248,5 +246,4 @@ echo BSPDIR=$BSPDIR
 echo BUILD_DIR=$BUILD_DIR
 
 cd  $BUILD_DIR
-clean_up
-unset FSLDISTRO
+myir_setup_cleanup

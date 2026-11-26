@@ -9,7 +9,7 @@ security_dir="$test_dir/../../../meta-measy-linux/meta-measy-security"
 target_mc="$security_dir/conf/multiconfig/myd-jmx95-dmverity-target.conf"
 factory_mc="$security_dir/conf/multiconfig/myd-jmx95-dmverity-factory.conf"
 security_inc="$test_dir/../../meta-myir-bsp/conf/machine/include/myir-jmx95-security.inc"
-ota_burn_append="$test_dir/../../../meta-measy-linux/meta-measy-swupdate/recipes-myir/myir-fac-burn/myir-fac-burn.bbappend"
+ota_burn_append="$test_dir/../../../meta-measy-linux/meta-measy-ota/recipes-myir/myir-fac-burn/myir-fac-burn.bbappend"
 
 bash -n "$burn"
 grep -Fq 'COMPATIBLE_MACHINE = "(myir-jmx95)"' "$burn_recipe"
