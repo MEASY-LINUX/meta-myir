@@ -214,11 +214,14 @@ append_optional_layer()
     if [ -f "${MYIR_SETUP_ROOT}/sources/${optional_layer}/conf/layer.conf" ]; then
         printf '\n## Optional layer: %s\n' "${optional_layer}" >> "$BUILD_DIR/conf/bblayers.conf"
         printf 'BBLAYERS += "${BSPDIR}/sources/%s"\n' "${optional_layer}" >> "$BUILD_DIR/conf/bblayers.conf"
+    elif [ -n "${2:-}" ]; then
+        printf 'WARNING: %s\n' "$2" >&2
     fi
 }
 
 append_optional_layer meta-measy-linux/meta-measy-support
-append_optional_layer meta-measy-linux/meta-measy-security
+append_optional_layer meta-measy-linux/meta-measy-security \
+    'meta-measy-security is missing. Contact your MYIR FAE to obtain this layer.'
 append_optional_layer meta-measy-linux/meta-measy-ota
 
 # Keep TOPDIR/keys stable while allowing production keys to live outside Git.
